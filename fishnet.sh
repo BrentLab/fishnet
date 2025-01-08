@@ -48,7 +48,7 @@ echo "done"
 
 # (3) nextflow random permutation run
 echo "executing Nextflow MEA pipeline on random permutations"
-pvalFileName=$( readlink -f ./test/${trait}RR/0-${trait}RR.csv )
+pvalFileName=$( readlink -f ./test/${trait}RR/${trait}RR.csv )
 num_permutations="1"
 nextflow run ./scripts/phase1/nextflow/main.nf \
     --trait "${trait}RR" \

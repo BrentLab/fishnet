@@ -29,8 +29,7 @@ def dc_rp_genes(genes_filepath):
     os.makedirs(new_dir, exist_ok=True)
 
     # Define the new file path
-    new_file_name = Path(genes_filepath).stem + "RR"
-    new_file_name = f"{new_file_name}.csv"
+    new_file_name = f"{new_dir_name}.csv"
     new_file_path = os.path.join(new_dir, new_file_name)
 
     # Save the updated DataFrame to the new file
