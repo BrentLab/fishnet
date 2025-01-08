@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; PascalX 0.0.4 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API documentation" href="PascalX.html" />
+    <link rel="prev" title="Installation" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PascalX
+            <img src="_static/Xlogo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#command-line-interface">Command-line interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gene-scoring">Gene scoring</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pathway-scoring">Pathway scoring</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#x-scoring">X scoring</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tissue-scoring">Tissue scoring</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#snp-gene-scoring">SNP-gene scoring</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="PascalX.html">API documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PascalX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this heading"></a></h1>
+<p>PascalX can be used either via a command-line interface or as a python3 library. The latter unlocks the full potential of PascalX.</p>
+<section id="command-line-interface">
+<h2>Command-line interface<a class="headerlink" href="#command-line-interface" title="Permalink to this heading"></a></h2>
+<p>The command-line interface is invoked by calling <code class="docutils literal notranslate"><span class="pre">./pascalx</span></code>. Available options and settings can be displayed by executing</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">./pascalx -h</span>
+</pre></div>
+</div>
+<p>Note that the script possesses global and command specific settings. The latter can be displayed after specifying the required global (positional) arguments and choice of command (<code class="docutils literal notranslate"><span class="pre">genescoring</span></code> or <code class="docutils literal notranslate"><span class="pre">xscoring</span></code>), for example</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">./pascalx ensemble.txt demo/EUR.simulated out.txt genescoring -h</span>
+</pre></div>
+</div>
+<p>The first argument specifies the gene annotation file (will be downloaded automatically from ensembl biomart if the specified file does not exist). The second argument sets the reference panel to use (will be imported automatically from corresponding .vcf files if not imported yet). The third argument specifies the file to store results in, and the fourth argument sets the operation to perform (<code class="docutils literal notranslate"><span class="pre">genescoring</span></code> or <code class="docutils literal notranslate"><span class="pre">xscoring</span></code>).</p>
+<p>Pathway scoring can be performed by prepending <code class="docutils literal notranslate"><span class="pre">-pw</span></code> followed by a file containing gene modules, for example</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">./pascalx -pw pathways.txt ensemble.txt refpanel out.txt genescoring gwasA.tsv.gz</span>
+</pre></div>
+</div>
+<p>For the parameters to specify the data columns in your pathway or GWAS file, please consult the <code class="docutils literal notranslate"><span class="pre">-h</span></code> option.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The command line interface uses a saddle point approximation to evaluate CDFs.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="gene-scoring">
+<h2>Gene scoring<a class="headerlink" href="#gene-scoring" title="Permalink to this heading"></a></h2>
+<p><strong>Initialization:</strong></p>
+<p>Import the genescorer class and initialize the sum of <span class="math notranslate nohighlight">\(\chi^2\)</span> based gene scorer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX</span> <span class="kn">import</span> <span class="n">genescorer</span>
+
+<span class="n">Scorer</span> <span class="o">=</span> <span class="n">genescorer</span><span class="o">.</span><span class="n">chi2sum</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Note that the default options of the genescorer are used. In particular, the gene start and end positions are extended by a window of <code class="docutils literal notranslate"><span class="pre">window=50000</span></code> and the variance cutoff is set to <code class="docutils literal notranslate"><span class="pre">varcutoff=0.99</span></code>.</p>
+<p><strong>Reference panel:</strong></p>
+<p><a class="reference external" href="https://www.internationalgenome.org/data">1000 Genome Project</a> reference data can be downloaded and converted via executing the script in the <code class="docutils literal notranslate"><span class="pre">PascalX/misc</span></code> folder as below (for GRCh37 replace 38 with 37).</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">bash get1KGGRCh38.sh pathtostore/ EUR 4 tped</span>
+</pre></div>
+</div>
+<p>The third parameter specifies the # of cpu cores to utilize. The plink converted files will be stored in the <code class="docutils literal notranslate"><span class="pre">pathtostore/</span></code> folder and will be named <code class="docutils literal notranslate"><span class="pre">EUR.1KG.GRCh38.chr#</span></code>. If you want to retain samples of all origin, replace <code class="docutils literal notranslate"><span class="pre">EUR</span></code> with <code class="docutils literal notranslate"><span class="pre">ALL</span></code>. Note that execution of the script requires a Linux OS. For instance, you can run it in the PascalX <a class="reference internal" href="install.html#dockersec"><span class="std std-ref">Multi-platform (Docker)</span></a> runtime.</p>
+<p>Set the reference panel to use via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">load_refpanel</span><span class="p">(</span><span class="s1">&#39;path/EUR.1KG.GRCh38&#39;</span><span class="p">,</span><span class="n">keepfile</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the corresponding reference data has not been imported yet, PascalX will try to import the data from <code class="docutils literal notranslate"><span class="pre">filename.chr#.tped.gz</span></code> or <code class="docutils literal notranslate"><span class="pre">filename.chr#.vcf.gz</span></code> files in <code class="docutils literal notranslate"><span class="pre">path/</span></code>. For .tped files the genotype information has to be supplied in gzip compressed 1-2-coded plink tped files. The following <a class="reference external" href="https://www.cog-genomics.org/plink/">plink</a> options should do the job: <code class="docutils literal notranslate"><span class="pre">--recode</span> <span class="pre">12</span> <span class="pre">transpose</span></code>. By default PascalX will utilize only one cpu core for the import. You can increase the number of cores used via setting the <code class="docutils literal notranslate"><span class="pre">parallel=</span></code> option.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>In order to import allele information into the reference panel, raw .vcf files have to be used for the import. Replace for this the <code class="docutils literal notranslate"><span class="pre">tped</span></code> import script option above with <code class="docutils literal notranslate"><span class="pre">vcf</span></code>. Note that to keep only a subset of samples under .vcf import, the <code class="docutils literal notranslate"><span class="pre">keepfile=</span></code> option has to be set.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The 1KG data download for GRCh38 is around 50GB. The import can take more than an hour per chromosome. A high parallel setting is therefore recommended.</p>
+</div>
+<p><strong>Gene annotation:</strong></p>
+<p>If you want to use ensembl gene annotation, it can be automatically downloaded from <a class="reference external" href="https://www.ensembl.org/biomart/martview/">BioMart</a> as follows.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX.genome</span> <span class="kn">import</span> <span class="n">genome</span>
+
+<span class="n">G</span> <span class="o">=</span> <span class="n">genome</span><span class="p">()</span>
+<span class="n">G</span><span class="o">.</span><span class="n">get_ensembl_annotation</span><span class="p">(</span><span class="s1">&#39;your_filename.tsv&#39;</span><span class="p">,</span><span class="n">genetype</span><span class="o">=</span><span class="s1">&#39;protein_coding, lncRNA&#39;</span><span class="p">,</span><span class="n">version</span><span class="o">=</span><span class="s1">&#39;GRCh38&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In the <code class="docutils literal notranslate"><span class="pre">genetype=</span></code> option all valid ensembl gene types can be supplied as a comma separated string.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>PascalX matches genes with variant ids via position overlap in the loaded reference panel. Both datasets need to be based on the same annotation version (for instance both GRCh38) !</p>
+</div>
+<p>The downloaded annotation can be imported via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">load_genome</span><span class="p">(</span><span class="s1">&#39;path/filename&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>It is also possible to load your own annotation. Please refer to the <a class="reference internal" href="PascalX.html#genescorer"><span class="std std-ref">Genescorer</span></a> API documentation for the required options to set. Instead of using a position wise annotation, a direct SNP to gene mapping can be used instead via the <code class="docutils literal notranslate"><span class="pre">load_mapping</span></code> method.</p>
+<p><strong>GWAS summary statistics:</strong></p>
+<p>The GWAS summary statistics to score can be imported via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">load_GWAS</span><span class="p">(</span><span class="s1">&#39;path/filename&#39;</span><span class="p">,</span><span class="n">rscol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">pcol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">a1col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">a2col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The argument <code class="docutils literal notranslate"><span class="pre">rscol=</span></code> specifies the column of the variant id and <code class="docutils literal notranslate"><span class="pre">pcol=</span></code> the column of the p-value. The columns <code class="docutils literal notranslate"><span class="pre">a1col=</span></code> and <code class="docutils literal notranslate"><span class="pre">a2col=</span></code> contain the alternate, respectively, reference allele. If the refernce panel does not contain allele information (.tped import), set both to <code class="docutils literal notranslate"><span class="pre">None</span></code>. <code class="docutils literal notranslate"><span class="pre">header=</span></code> specifies if the first row is a header or not. The file can be either raw text or gzip compressed with file name ending on <code class="docutils literal notranslate"><span class="pre">.gz</span></code>.</p>
+<p>Note that the loaded GWAS SNPs can be visualized gene-wise via the command</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">plot_genesnps</span><span class="p">(</span><span class="s1">&#39;AOAH&#39;</span><span class="p">,</span><span class="n">mark_window</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">show_correlation</span><span class="o">=</span><span class="kc">True</span><span class="p">);</span>
+</pre></div>
+</div>
+<img alt="_images/gwasvisu.png" src="_images/gwasvisu.png" />
+<p><strong>Scoring:</strong></p>
+<p>After the gene annotation, reference panel and GWAS has been loaded as described above, gene scores can be calculated as follows.</p>
+<p><em>Example 1:</em></p>
+<p>Score all genes in the loaded annotation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="n">Scorer</span><span class="o">.</span><span class="n">score_all</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><em>Example 2:</em></p>
+<p>Score only genes on chromosomes 21 and 22:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="n">Scorer</span><span class="o">.</span><span class="n">score_chr</span><span class="p">(</span><span class="n">chrs</span><span class="o">=</span><span class="p">[</span><span class="mi">21</span><span class="p">,</span><span class="mi">22</span><span class="p">])</span>
+</pre></div>
+</div>
+<p><em>Example 3:</em></p>
+<p>Score the genes WDR12 and FARP2:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="n">Scorer</span><span class="o">.</span><span class="n">score</span><span class="p">([</span><span class="s1">&#39;WDR12&#39;</span><span class="p">,</span><span class="s1">&#39;FARP2&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For all available options, please refer to the <a class="reference internal" href="PascalX.html#genescorer"><span class="std std-ref">Genescorer</span></a> section in the API documentation.</p>
+</div>
+<p><strong>Return:</strong></p>
+<p>The return <code class="docutils literal notranslate"><span class="pre">R</span></code> of the gene scorer reads</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="p">[</span><span class="n">R_SUCCESS</span><span class="p">,</span><span class="n">R_FAIL</span><span class="p">,</span><span class="n">R_TOTALFAIL</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R_SUCCESS</span>   <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="s1">&#39;Symbol&#39;</span><span class="p">,</span><span class="n">p</span><span class="o">-</span><span class="n">value</span><span class="p">,</span><span class="n">NSNP</span><span class="p">],</span><span class="o">...</span><span class="p">]</span>
+<span class="n">R_FAIL</span>      <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="s1">&#39;Symbol&#39;</span><span class="p">,[</span><span class="n">infos</span><span class="p">]]</span>     <span class="p">,</span><span class="o">...</span><span class="p">]</span>
+<span class="n">R_TOTALFAIL</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="s1">&#39;Symbol&#39;</span><span class="p">,</span><span class="s1">&#39;Reason&#39;</span><span class="p">]</span>    <span class="p">,</span><span class="o">...</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Here, <code class="docutils literal notranslate"><span class="pre">R_SUCCESS</span></code> is the list of successfully scored genes, <code class="docutils literal notranslate"><span class="pre">R_FAIL</span></code> the list of genes with failed scoring due to non-convergence of the scoring algorithm and <code class="docutils literal notranslate"><span class="pre">R_TOTALFAIL</span></code> the list of genes which failed for other reasons, like no available SNPs.</p>
+<p>By default, the genescorer uses a saddle-point approximation for CDF calculation (<code class="docutils literal notranslate"><span class="pre">method='saddle'</span></code>). For exact calculation, it is recommended to automatically select the most suitable algorithm and precision to use via using (<code class="docutils literal notranslate"><span class="pre">method='auto'</span></code>). The genes in <code class="docutils literal notranslate"><span class="pre">R_FAIL</span></code> can be automatically re-scored once (<code class="docutils literal notranslate"><span class="pre">autorescore=True</span></code>) using Pearson’s algorithm. Note that Ruben at max precision, given enough iterations, will converge eventually. However, if the ratio between largest and smallest eigenvalue is large, it may converge very slowly. In this case, often it is helpful to reduce the kept variance via the <code class="docutils literal notranslate"><span class="pre">varcutoff=</span></code> parameter of the genescorer. Note that a result <code class="docutils literal notranslate"><span class="pre">R</span></code> can be manually re-scored using the rescore method of the <a class="reference internal" href="PascalX.html#genescorer"><span class="std std-ref">Genescorer</span></a>.</p>
+<p><strong>Persistence:</strong></p>
+<p>Use pickle to store <code class="docutils literal notranslate"><span class="pre">R</span></code> or</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">save_scores</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>to save only the gene symbol - p-value pairs in a tab separated text file.</p>
+<p><strong>Visualization:</strong></p>
+<p>A Manhattan plot for the scored genes can be generated automatically.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">plot_Manhattan</span><span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</pre></div>
+</div>
+<img alt="_images/manhattanplot.png" src="_images/manhattanplot.png" />
+<p>For all plot options, please consult the <a class="reference internal" href="PascalX.html#genescorer"><span class="std std-ref">Genescorer</span></a> documentation. Note that the plot is generated via <a class="reference external" href="https://matplotlib.org/">matplotlib</a>. The general plot can be modified or saved via accessing the current <code class="docutils literal notranslate"><span class="pre">matplotlib.pyplot</span></code> object.</p>
+</section>
+<hr class="docutils" />
+<section id="pathway-scoring">
+<h2>Pathway scoring<a class="headerlink" href="#pathway-scoring" title="Permalink to this heading"></a></h2>
+<p>PascalX offers two different pathway scorers. Both require a fully initialized genescorer, as introduced above.</p>
+<p><strong>Initialization:</strong></p>
+<p>Define a gene scorer and score or load scored genes for a GWAS. Note that saved genescores can be imported via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">load_scores</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The pathway scorer is then initialiazed as follows.</p>
+<p>Import first the pathway scoring class via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX</span> <span class="kn">import</span> <span class="n">pathway</span>
+</pre></div>
+</div>
+<p><em>Rank based scoring:</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Pscorer</span> <span class="o">=</span> <span class="n">pathway</span><span class="o">.</span><span class="n">chi2rank</span><span class="p">(</span><span class="n">Scorer</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The rank scorer uniformizes the gene p-value distribution via ranking and aggregates p-values via inverse transform to <span class="math notranslate nohighlight">\(\chi^2\)</span> distributed random variables.</p>
+<p><em>Monte-Carlo based scoring:</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Pscorer</span> <span class="o">=</span> <span class="n">pathway</span><span class="o">.</span><span class="n">chi2perm</span><span class="p">(</span><span class="n">Scorer</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Gene p-values are directly <span class="math notranslate nohighlight">\(\chi^2\)</span> inverse transformed and the sum for a given pathway is compared against randomly generated gene sets of equal size.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Genes in the randomly generated gene sets are not fused due to computational cost. In general, we recommend to use soley the rank based scoring method.</p>
+</div>
+<p><strong>Modules:</strong></p>
+<p>Sets of gene modules / pathways can be loaded from a tab-separated file via the command</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">M</span> <span class="o">=</span> <span class="n">Pscorer</span><span class="o">.</span><span class="n">load_modules</span><span class="p">(</span><span class="s1">&#39;filename.tsv&#39;</span><span class="p">,</span><span class="n">ncol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">fcol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ncol=</span></code> is the column with the name of the module and <code class="docutils literal notranslate"><span class="pre">fcol=</span></code> the first column with a gene symbol. It is assumed that other member genes follow in subsequent columns.</p>
+<p><strong>Scoring:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RESULT</span> <span class="o">=</span> <span class="n">Pscorer</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The return <code class="docutils literal notranslate"><span class="pre">RESULT</span></code> reads</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RESULT</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">,[</span><span class="n">genes</span><span class="p">],[</span><span class="n">gene</span> <span class="n">p</span><span class="o">-</span><span class="n">values</span><span class="p">],</span><span class="n">p</span><span class="o">-</span><span class="n">value</span><span class="p">],</span><span class="o">...</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Genes and meta-genes with out a p-value (failed gene scoring) are removed from the pathway before pathway scoring. These genes are marked in <code class="docutils literal notranslate"><span class="pre">RESULT</span></code> via <code class="docutils literal notranslate"><span class="pre">NaN</span></code> gene p-value.</p>
+</section>
+<hr class="docutils" />
+<section id="x-scoring">
+<h2>X scoring<a class="headerlink" href="#x-scoring" title="Permalink to this heading"></a></h2>
+<p>PascalX offers the two different GWAS cross scorers introduced in the preprint <a class="reference external" href="https://doi.org/10.1101/2021.05.16.21257289">doi:10.1101/2021.05.16.21257289</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Gene-wise cross scoring is a new feature which has not been peer-reviewed yet.</p>
+</div>
+<p><strong>Coherence scorer:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX</span> <span class="kn">import</span> <span class="n">xscorer</span>
+
+<span class="n">X</span> <span class="o">=</span> <span class="n">xscorer</span><span class="o">.</span><span class="n">zsum</span><span class="p">(</span><span class="n">leftTail</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">X</span><span class="o">.</span><span class="n">load_genome</span><span class="p">(</span><span class="s1">&#39;path/filename&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that the default initialization of the gene scoring above are used. <code class="docutils literal notranslate"><span class="pre">leftTail=</span></code> sets the side to test. <code class="docutils literal notranslate"><span class="pre">False</span></code> corresponds to anti-coherence and <code class="docutils literal notranslate"><span class="pre">True</span></code> to coherence.
+A gene annotation has to be loaded as for the standard <a class="reference internal" href="PascalX.html#genescorer"><span class="std std-ref">Genescorer</span></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="o">.</span><span class="n">load_GWAS</span><span class="p">(</span><span class="s1">&#39;path/filenameA&#39;</span><span class="p">,</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;GWAS A&#39;</span><span class="p">,</span><span class="n">rscol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">pcol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">bcol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span><span class="n">a1col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">a2col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">X</span><span class="o">.</span><span class="n">load_GWAS</span><span class="p">(</span><span class="s1">&#39;path/filenameB&#39;</span><span class="p">,</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;GWAS B&#39;</span><span class="p">,</span><span class="n">rscol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">pcol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">bcol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span><span class="n">a1col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">a2col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In the GWAS data loading routine, we have to set in addition a name for each GWAS to be loaded via the <code class="docutils literal notranslate"><span class="pre">name=</span></code> argument, and it is necessary to specify the column with the raw betas <code class="docutils literal notranslate"><span class="pre">bcol=</span></code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>It is recommended to load allele information via setting <code class="docutils literal notranslate"><span class="pre">a1col=</span></code> and <code class="docutils literal notranslate"><span class="pre">a2col=</span></code>. Note that this requires also a reference panel with allele information (.vcf import).</p>
+</div>
+<p>It is recommended to filter for matching alleles between the GWAS via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="o">.</span><span class="n">matchAlleles</span><span class="p">(</span><span class="s1">&#39;GWAS A&#39;</span><span class="p">,</span><span class="s1">&#39;GWAS B&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>and to perform the scoring for jointly QQ normalized p-values:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="o">.</span><span class="n">jointlyRank</span><span class="p">(</span><span class="s1">&#39;GWAS A&#39;</span><span class="p">,</span><span class="s1">&#39;GWAS B&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The scoring is started via calling</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">score_all</span><span class="p">(</span><span class="n">E_A</span><span class="o">=</span><span class="s1">&#39;GWAS A&#39;</span><span class="p">,</span><span class="n">E_B</span><span class="o">=</span><span class="s1">&#39;GWAS B&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The return <code class="docutils literal notranslate"><span class="pre">R</span></code> is as for the <a class="reference internal" href="PascalX.html#genescorer"><span class="std std-ref">Genescorer</span></a> class.</p>
+<p>Note that the loaded SNPs of a GWAS pair can be visualized gene-wise via the command</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="o">.</span><span class="n">plot_genesnps</span><span class="p">(</span><span class="s1">&#39;TRIM26&#39;</span><span class="p">,</span><span class="s1">&#39;GWAS A&#39;</span><span class="p">,</span><span class="s1">&#39;GWAS B&#39;</span><span class="p">,</span><span class="n">mark_window</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">show_correlation</span><span class="o">=</span><span class="kc">True</span><span class="p">);</span>
+</pre></div>
+</div>
+<img alt="_images/xplot.png" src="_images/xplot.png" />
+<p><strong>Ratio scorer:</strong></p>
+<p>As above, but with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">X</span> <span class="o">=</span> <span class="n">xscorer</span><span class="o">.</span><span class="n">rsum</span><span class="p">(</span><span class="n">leftTail</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="tissue-scoring">
+<h2>Tissue scoring<a class="headerlink" href="#tissue-scoring" title="Permalink to this heading"></a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Tissue enrichment scoring using the Pascal methodology is experimental and has not been peer-reviewed yet.</p>
+</div>
+<p><strong>Initialization:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX.genexpr</span> <span class="kn">import</span> <span class="n">genexpr</span>
+
+<span class="n">GE</span> <span class="o">=</span> <span class="n">genexpr</span><span class="p">()</span>
+<span class="n">GE</span><span class="o">.</span><span class="n">load_genome</span><span class="p">(</span><span class="s1">&#39;yourannotationfile&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><a class="reference external" href="https://gtexportal.org/home/">GTEx</a> data has to be imported. For automatic import, call</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">GE</span><span class="o">.</span><span class="n">get_GTEX_expr</span><span class="p">(</span><span class="s1">&#39;yourGTEXfilename&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The import of the raw data can take several hours. However, this step needs to be done only once and can be skipped in subsequent usage.</p>
+</div>
+<p>After the GTEx data has been successfully imported, it can be loaded via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">GE</span><span class="o">.</span><span class="n">load_expr</span><span class="p">(</span><span class="s1">&#39;GTEX/yourGTEXfilename&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Visualization:</strong></p>
+<p>Tissue expression (in TPM) can be visualized for a list of genes via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">GE</span><span class="o">.</span><span class="n">plot_genexpr</span><span class="p">([</span><span class="s1">&#39;AOAH&#39;</span><span class="p">,</span><span class="s1">&#39;CSMD1&#39;</span><span class="p">,</span><span class="s1">&#39;CDH13&#39;</span><span class="p">],</span><span class="n">tzscore</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">cbar_pos</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
+</pre></div>
+</div>
+<img alt="_images/tissuevisu.png" src="_images/tissuevisu.png" />
+<p><strong>Scoring:</strong></p>
+<p>PascalX tests for tissue enrichment in a similar fashion to the pathway scoring. The enrichment test is performed on a list of genes. Genes in close proximity are fused to meta-genes and TPM values are re-computed for the meta-genes from the raw GTEx read counts. The gene TPM values are uniformized via ranking and transformed to <span class="math notranslate nohighlight">\(\chi^2\)</span> distributed random variables via the inverse <span class="math notranslate nohighlight">\(\chi^2\)</span> cdf. The sum is tested against a <span class="math notranslate nohighlight">\(\chi^2\)</span> distribution with <span class="math notranslate nohighlight">\(n\)</span> (# genes) degrees of freedom.</p>
+<p>To test for enrichment of a pathway, supply the gene members. To test for GWAS enrichment, supply a list of the significant genes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="n">GE</span><span class="o">.</span><span class="n">chi2rank</span><span class="p">([</span> <span class="p">[</span><span class="s1">&#39;PathwayName&#39;</span><span class="p">,[</span><span class="s1">&#39;AOAH&#39;</span><span class="p">,</span><span class="s1">&#39;CSMD1&#39;</span><span class="p">,</span><span class="s1">&#39; CDH13&#39;</span><span class="p">]</span> <span class="p">]</span> <span class="p">])</span>
+</pre></div>
+</div>
+<p><strong>Return:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="p">({</span><span class="s1">&#39;PathwayName&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;Tissue&#39;</span><span class="p">:</span> <span class="n">pval</span><span class="p">,</span><span class="o">...</span> <span class="p">},</span><span class="o">...</span>  <span class="p">},</span> <span class="n">FAILS</span><span class="p">,</span> <span class="n">GENES</span><span class="p">,</span> <span class="p">[{</span><span class="s1">&#39;Tissue&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">pvalg1</span><span class="p">,</span><span class="o">...</span><span class="p">]}]</span>  <span class="p">)</span>
+</pre></div>
+</div>
+<p>with <code class="docutils literal notranslate"><span class="pre">FAILS</span></code> the list of (meta)-genes without TPM value, <code class="docutils literal notranslate"><span class="pre">GENES</span></code> the list of genes after fusion, and the last list of dictionaries listsing the individual gene inverse cdf transformed values.</p>
+</section>
+<hr class="docutils" />
+<section id="snp-gene-scoring">
+<h2>SNP-gene scoring<a class="headerlink" href="#snp-gene-scoring" title="Permalink to this heading"></a></h2>
+<p>PascalX supports external SNP-gene base information, such as eQTLs or chromatin interaction datasets, to complement the default distance based SNP-gene association. This requires external datasets containing rsids (variant id) and the gene Ensembl id they are associated with.</p>
+<p><strong>Initialization:</strong></p>
+<p>First, as for standard gene scoring, the genescorer has to be initialized and reference panel, ensembl gene annotation and GWAS SNPs have to be loaded.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX</span> <span class="kn">import</span> <span class="n">genescorer</span>
+
+<span class="n">Scorer</span> <span class="o">=</span> <span class="n">genescorer</span><span class="o">.</span><span class="n">chi2sum</span><span class="p">()</span>
+<span class="n">Scorer</span><span class="o">.</span><span class="n">load_refpanel</span><span class="p">(</span><span class="s2">&quot;path/filename&quot;</span><span class="p">)</span>
+<span class="n">Scorer</span><span class="o">.</span><span class="n">load_genome</span><span class="p">(</span><span class="s2">&quot;path/filename&quot;</span><span class="p">)</span>
+
+<span class="n">Scorer</span><span class="o">.</span><span class="n">load_GWAS</span><span class="p">(</span><span class="s2">&quot;path/filename&quot;</span><span class="p">,</span><span class="n">rscol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">pcol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Importing the external SNP-gene datasets:</strong></p>
+<p>The additional external SNP-gene annotation can be loaded via</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Scorer</span><span class="o">.</span><span class="n">load_mapping</span><span class="p">(</span><span class="s2">&quot;path/filename&quot;</span><span class="p">,</span> <span class="n">rcol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">gcol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">joint</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The arguments <code class="docutils literal notranslate"><span class="pre">rscol=</span></code> and <code class="docutils literal notranslate"><span class="pre">gcol=</span></code> specify, respectively, the columns of the SNP rsid and the ensembl gene id. The <code class="docutils literal notranslate"><span class="pre">header=</span></code> specifies if the first row is a header or not. The <code class="docutils literal notranslate"><span class="pre">joint=</span></code> argument is used to select if the gene and pathway scoring is done using only the external SNPs (False) or if it should also include the SNPs in the windowed gene transcription side (True). The SNP-gene information file can either be a raw text file or a gzip compressed file (with ending .gz).</p>
+<p><strong>Scoring:</strong></p>
+<p>The gene and pathway scoring can then be executed as for standard gene scoring:</p>
+<p><em>Gene scoring:</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">R</span> <span class="o">=</span> <span class="n">Scorer</span><span class="o">.</span><span class="n">score_all</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><em>Pathway scoring:</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">PascalX</span> <span class="kn">import</span> <span class="n">pathway</span>
+
+<span class="n">Pscorer</span> <span class="o">=</span> <span class="n">pathway</span><span class="o">.</span><span class="n">chi2rank</span><span class="p">(</span><span class="n">Scorer</span><span class="p">)</span>
+<span class="n">M</span> <span class="o">=</span> <span class="n">Pscorer</span><span class="o">.</span><span class="n">load_modules</span><span class="p">(</span><span class="s2">&quot;filename.tsv&quot;</span><span class="p">,</span><span class="n">ncol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">fcol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">RESULT</span> <span class="o">=</span> <span class="n">Pscorer</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="install.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="PascalX.html" class="btn btn-neutral float-right" title="API documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2022, Bergmann lab and contributors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
