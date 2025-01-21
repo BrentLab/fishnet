@@ -1,0 +1,55 @@
+title: FISHNET Documentation
+description: Documentation for the FISHNET code
+theme: just-the-docs
+repository: BrentLab/fishnet
+
+url: https://brentlab.github.io/fishnet/
+
+# links on top-right of nav bar
+aux_links:
+  "FISHNET on GitHub":
+    - "https://github.com/BrentLab/fishnet"
+# link opens in new tab
+aux_links_new_tab: true
+
+# enable navigation sidebar
+nav_enabled: true
+
+# support anchor links to page headers
+heading_anchors: true
+
+# For copy button on code
+enable_copy_code_button: true
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+
+exclude:
+  # from https://github.com/jekyll/jekyll/blob/master/lib/site_template/_config.yml:
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  # specific to the theme website:
+  - bin/
+  - lib/
+  - "*.gemspec"
+  - "*.gem"
+  - LICENSE.txt
+  - package.json
+  - package-lock.json
+  - Rakefile
+  - README.md
+  - CODE_OF_CONDUCT.md
+  - docker-compose.yml
+  - Dockerfile
+  # theme test code
+  - fixtures/

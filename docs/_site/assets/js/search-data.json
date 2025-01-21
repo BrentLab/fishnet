@@ -1,0 +1,121 @@
+{"0": {
+    "doc": "CHANGELOG",
+    "title": "CHANGELOG",
+    "content": " ",
+    "url": "/changelog",
+    
+    "relUrl": "/changelog"
+  },"1": {
+    "doc": "Configuration",
+    "title": "FISHNET configuration",
+    "content": "FISHNET currently supports platforms with either Singularity or Docker. FISHNET supports HPCs using the SLURM workload manager to submit batch jobs for parallel computing. FISHENT provides a command line interface (CLI) for execution. Simply run ./fishnet.sh with no options or ./fishnet.sh -h to see the list of available top-level options. | Parameters . | Required parameters . | Trait | Network modules | . | Optional parameters . | Permutations | Multiple testing | Percentile threshold | Skipping stages | Thresholding methods | Container platform | Nextflow config file | Test run | . | . | Nextflow configuration | . ",
+    "url": "/configuration#fishnet-configuration",
+    
+    "relUrl": "/configuration#fishnet-configuration"
+  },"2": {
+    "doc": "Configuration",
+    "title": "Parameters",
+    "content": "Required parameters . Trait . --trait &lt;path/to/input/file.csv&gt; (Required) . Network modules . --modules &lt;/path/to/modules/directory/&gt; (Required) . Optional parameters . Permutations . --num-permutations &lt;integer&gt; . Multiple testing . --FDR-threshold &lt;float&gt; . Percentile threshold . --percentile-threshold &lt;float&gt; . SANDEEP PLEASE EXPLAIN WHAT EXACTLY --percentile-threshold DOES AND HOW IT AFFECTS FISHNET. It is used in dc_identify_mea_passing_genes.py . Skipping stages . --skip-stage-1 . --skip-stage-2 . Thresholding methods . --thresholding-alternative . Container platform . --singularity . Nextflow config file . The --nxf-config &lt;path/to/nxf.config&gt; option can be used to specify a custom configuration file for running the Nextflow pipelines. If not specified, FISHNET uses the ./conf/fishent_slurm.config when the --singularity option is used and ./conf/fishnet.config otherwise. See Nextflow configuration for details on editing the configuration file. Test run . --test . ",
+    "url": "/configuration#parameters",
+    
+    "relUrl": "/configuration#parameters"
+  },"3": {
+    "doc": "Configuration",
+    "title": "Nextflow configuration",
+    "content": "FISHNET uses Nextflow pipelines for module enrichment analysis. Nextflow enables scalable and reproducible scientific workflows using software containers and can be run on different platforms. However, this requires a little bit of configuration on the user-end to make the best out of your working environment. By default, FISHNET comes with two preset Nextflow configuration files in the conf/ directory: . conf/ ├── fishnet.config └── fishnet_slurm.config . fishnet.config is configured for Nextflow to use Docker for software containers and fishnet_slurm.config is configured for FISHNET to run on a SLURM HPC using Singularity for software containers. Please refer to the Nextflow documentation for detailed explanations of the configuration files. ",
+    "url": "/configuration#nextflow-configuration",
+    
+    "relUrl": "/configuration#nextflow-configuration"
+  },"4": {
+    "doc": "Configuration",
+    "title": "Configuration",
+    "content": " ",
+    "url": "/configuration",
+    
+    "relUrl": "/configuration"
+  },"5": {
+    "doc": "Example",
+    "title": "Example FISHENT run",
+    "content": "Dataset: maleWC summary statistics . ",
+    "url": "/example#example-fishent-run",
+    
+    "relUrl": "/example#example-fishent-run"
+  },"6": {
+    "doc": "Example",
+    "title": "Example",
+    "content": " ",
+    "url": "/example",
+    
+    "relUrl": "/example"
+  },"7": {
+    "doc": "FAQ",
+    "title": "Frequently Asked Questions",
+    "content": " ",
+    "url": "/faq#frequently-asked-questions",
+    
+    "relUrl": "/faq#frequently-asked-questions"
+  },"8": {
+    "doc": "FAQ",
+    "title": "Sample question 1",
+    "content": "Sample answer 1 . ",
+    "url": "/faq#sample-question-1",
+    
+    "relUrl": "/faq#sample-question-1"
+  },"9": {
+    "doc": "FAQ",
+    "title": "Sample question 2",
+    "content": "Sample answer 2 . ",
+    "url": "/faq#sample-question-2",
+    
+    "relUrl": "/faq#sample-question-2"
+  },"10": {
+    "doc": "FAQ",
+    "title": "FAQ",
+    "content": " ",
+    "url": "/faq",
+    
+    "relUrl": "/faq"
+  },"11": {
+    "doc": "Getting Started",
+    "title": "Getting Started",
+    "content": "Here we guide you to get started on using FISHNET for your next project. Note: if you use FISHNET in published research, please cite: . Acharya et al. (2025) FISHNET citation doi: . ",
+    "url": "/getting-started",
+    
+    "relUrl": "/getting-started"
+  },"12": {
+    "doc": "Getting Started",
+    "title": "Table of contents",
+    "content": ". | Installation | Quick start . | Execution | Output files | . | . ",
+    "url": "/getting-started#table-of-contents",
+    
+    "relUrl": "/getting-started#table-of-contents"
+  },"13": {
+    "doc": "Getting Started",
+    "title": "Installation",
+    "content": "Clone the FISHENT GitHub repository and cd into the local repository: . $ git clone https://github.com/BrentLab/fishnet.git $ cd fishnet/ . Run FISHNET on test data to verify successful installation: . $ ./fishnet.sh --test . Note: If your platform does not support Docker (e.g. in a HPC environment), use the --singularity flag: . $ ./fishnet.sh --test --singularity . ",
+    "url": "/getting-started#installation",
+    
+    "relUrl": "/getting-started#installation"
+  },"14": {
+    "doc": "Getting Started",
+    "title": "Quick start",
+    "content": "Execution . Here we show the most basic steps for a FISHNET analysis. There are a variety of configuration options which are detailed in Configuration. This code chunk assumes that you have an input summary statistics file at /path/to/input/file.csv (comma-separated with columns named “Genes” and “p_vals”) and a set of tab-delimited .txt network module files at /path/to/modules/directory/. $ ./fishnet.sh \\ --trait /path/to/input/file.csv \\ --modules /path/to/modules/directory/ . This will run both stages of FISHNET with 10 permutations (by default) using the default thresholding method (by default). Output files . The output files are saved in a results/ subdirectory (by default) relative to the current working directory where you launch fishnet.sh. Here, we guide you through the expected output directory structure. | The results/data/ directory stores the input summary statistics file and the input module networks. In addition, the results/data/&lt;trait&gt;RR/ directory saves the uniformly distributed p-values based on the input summary statitics file as &lt;trait&gt;RR.csv. results/ └── data/ └── &lt;trait&gt;/    └── 0-&lt;trait&gt;.csv └── &lt;trait&gt;RR/    └── &lt;trait&gt;RR.csv └── modules/ └── &lt;module_algorithm&gt;/ ├── &lt;module1&gt;.txt ├── ... └── &lt;module3&gt;.txt . | The results/&lt;trait&gt;/ directory stores results for the input summary statistics p-values. The master_sumary.csv is the final output file from FISHNET. The enriched_modules/ directory lists significantly enriched modules for each network. The GO_summaries/ directory lists statistics for the GO overrepresentation analysis. results/ └── &lt;trait&gt;/ └── background_genes/    ├── &lt;module_algorithm&gt;-&lt;module1&gt;.txt    ├── ...    └── &lt;module_algorithm&gt;-&lt;module3&gt;.txt └── enriched_modules/    ├── &lt;trait&gt;-&lt;module3&gt;    └── └── sig_&lt;trait&gt;-&lt;module3&gt;-179.txt └── GO_summaries/    └── &lt;trait&gt;/    ├── GO_summaries_0-&lt;trait&gt;_&lt;module1&gt;/    ├── GO_summaries_0-&lt;trait&gt;_&lt;module3&gt;/    └── └── sig_&lt;trait&gt;_0-&lt;trait&gt;_&lt;module3&gt;_179.csv ├── &lt;trait&gt;.txt └── masterSummaries/    └── summaries/    ├── &lt;trait&gt;_0-&lt;trait&gt;_&lt;module1&gt;.csv    ├── ...    └── &lt;trait&gt;_0-&lt;trait&gt;_&lt;module3&gt;.csv ├── master_summary.csv ├── master_summary_filtered.csv ├── master_summary_filtered_parsed.csv └── results/    └── raw/    ├── &lt;module1&gt;_0-&lt;trait&gt;_&lt;module1&gt;_or_fishnet_genes.csv    ├── &lt;module1&gt;_0-&lt;trait&gt;_&lt;module1&gt;_or_summary.csv    ├── ...    ├── &lt;module3&gt;_0-&lt;trait&gt;_&lt;module3&gt;_or_fishnet_genes.csv    └── &lt;module3&gt;_0-&lt;trait&gt;_&lt;module3&gt;_or_summary.csv └── summary/ ├── 0-&lt;trait&gt;_&lt;module1&gt;_summary.csv ├── ... └── 0-&lt;trait&gt;_&lt;module3&gt;_summary.csv . SANDEEP: please describe the master_summary.csv file and how a user can interpret its contents. | The results/&lt;trait&gt;RR/ directory stores results for the permutations. Subdirectory contents are identical to the original &lt;trait&gt; directory as described above. results/ └── &lt;trait&gt;RR/ ├── background_genes/ └── enriched_modules/    ├── &lt;trait&gt;RR-&lt;module1&gt;/    ├── &lt;trait&gt;RR-&lt;module3&gt;/    ├── GO_summaries/    └── &lt;trait&gt;RR/ ├── &lt;trait&gt;RR.txt └── masterSummaries/    └── summaries/ ├── master_summary.csv ├── master_summary_filtered.csv └── master_summary_filtered_parsed.csv . | . ",
+    "url": "/getting-started#quick-start",
+    
+    "relUrl": "/getting-started#quick-start"
+  },"15": {
+    "doc": "Home",
+    "title": "FISHNET (Finding Significant Hits in NETworks)",
+    "content": "SANDEEP: introduce FISHNET . Here is how to use links: Brent Lab Website . And an example of footnotes for possible citations? CMA1 is the flagship paper. | Acharya et al. &#8617; . | . ",
+    "url": "/#fishnet-finding-significant-hits-in-networks",
+    
+    "relUrl": "/#fishnet-finding-significant-hits-in-networks"
+  },"16": {
+    "doc": "Home",
+    "title": "Home",
+    "content": " ",
+    "url": "/",
+    
+    "relUrl": "/"
+  }
+}
