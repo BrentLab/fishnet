@@ -77,6 +77,13 @@ PERCENTILE_THRESHOLD=0.99
 NUM_PERMUTATIONS=10
 TRAITPATH="NONE"
 
+# print usage if no args
+if [ "$#" -eq 0 ]; then
+    usage
+    exit 1
+fi
+
+# parse args
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)
