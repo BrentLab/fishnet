@@ -10,10 +10,11 @@ permalink: /getting-started
 
 Here we guide you to get started on using FISHNET for your next project.
 
-**Note:** if you use FISHNET in published research, please cite:
+**Note:** if you use FISHNET in published research, please cite the following paper:  
 
-[comment]: # TODO: update FISHNET citation
-> Acharya et al. (2025) FISHNET citation doi:
+**Acharya et al.**, *FISHNET: A Network-based Tool for Analyzing Gene-level P-values to Identify Significant Genes Missed by Standard Methods*, [doi:10.1101/2025.01.29.635546](https://doi.org/10.1101/2025.01.29.635546).
+
+
 
 ## Table of contents
 {: .no_toc }
@@ -77,10 +78,10 @@ results/
 ```
 
 2. The `results/<trait>/` directory stores results for the input summary
-statistics p-values. The `master_sumary.csv` is the final output file from
-FISHNET. The `enriched_modules/` directory lists significantly enriched
+statistics p-values. The `enriched_modules/` directory lists significantly enriched
 modules for each network. The `GO_summaries/` directory lists statistics for the
-GO overrepresentation analysis.
+GO overrepresentation analysis. The FISHNET genes for the trait and the network the genes originate from can be found in  `summary/<network>_<trait>_fishnet_genes_<FDR-threshold>.csv`
+
 ```
 results/
 └── <trait>/
@@ -113,13 +114,14 @@ results/
             ├── <module3>_0-<trait>_<module3>_or_fishnet_genes.csv
             └── <module3>_0-<trait>_<module3>_or_summary.csv
     └── summary/
-        ├── 0-<trait>_<module1>_summary.csv
-        ├── ...
-        └── 0-<trait>_<module3>_summary.csv
+        ├── 0-<trait>_<network1>_summary.csv
+        ├── <network1>_<trait>_fishnet_genes_<FDR-threshold>.csv 
+        ├── 
+        ├── 
+        ├── 0-<trait>_<network2>_summary.csv
+        └── <network2>_<trait>_fishnet_genes_<FDR-threshold>.csv 
 ```
-   > [comment]: # TODO: DESCRIBE THE MASTER_SUMMARY.CSV FILE
-   > SANDEEP: please describe the `master_summary.csv` file and how a user can
-   > interpret its contents.
+
 3. The `results/<trait>RR/` directory stores results for the permutations.
 Subdirectory contents are identical to the original `<trait>` directory as
 described above.

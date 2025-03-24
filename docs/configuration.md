@@ -43,9 +43,7 @@ of available top-level options.
 #### Percentile threshold
 `--percentile-threshold <float>`
 
-[comment]: # TODO
-SANDEEP PLEASE EXPLAIN WHAT EXACTLY `--percentile-threshold` DOES AND HOW IT
-AFFECTS FISHNET. It is used in `dc_identify_mea_passing_genes.py`
+The `--percentile-threshold` parameter is used to ensure that the number of candidate FISHNET genes obtained using original ranks of genes is higher than or equal to those obtained using random permutation of gene ranks for X % of random permutations. X is the percentile-threshold initially set by the users. 
 
 #### Skipping stages
 `--skip-stage-1`
