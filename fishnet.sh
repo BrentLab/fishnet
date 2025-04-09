@@ -270,12 +270,48 @@ export container_R="docker://jungwooseok/r-webgestaltr:1.0"
 #################
 ### FUNCTIONS ###
 #################
+
+pull_docker_image() {
+
+    if [ "$SINGULARITY" = true ]; then
+        if [ ! -d "$(pwd)/singularity_images/" ]; then
+            mkdir "$(pwd)/singularity_images"
+        fi
+
+        container_python_docker=$container_python
+        container_R_docker=$container_R
+        export container_python="$(pwd)/singularity_images/dc_rp_genes.sif"
+        export container_R="$(pwd)/singularity_images/r_webgestaltr.sif"
+
+        if [ ! -f $container_python ]; then
+            JOB_PULL_SINGULARITY_PYTHON=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J pull_singularity_container_python
+#SBATCH -o ./logs/pull_singularity_container_python_%J.out
+singularity pull $container_python $container_python_docker
+EOT
+)
+            JOB_PULL_SINGULARITY_PYTHON_ID=$( echo "$JOB_PULL_SINGULARITY_PYTHON" | awk '{print $4}')
+        fi
+        if [ ! -f $container_R ]; then
+            JOB_PULL_SINGULARITY_R=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J pull_singularity_container_R
+#SBATCH -o ./logs/pull_singularity_container_R_%J.out
+singularity pull $container_python $container_R_docker
+EOT
+)
+            JOB_PULL_SINGULARITY_R_ID=$( echo "$JOB_PULL_SINGULARITY_R" | awk '{print $4}')
+        fi
+    fi
+}
+
 phase1_step1() {
 
     # (1) nextflow original run
     echo "# STEP 1.1: executing Nextflow MEA pipeline on original run"
     if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP1=$(sbatch ./scripts/phase1/phase1_step1.sh $(pwd))
+        JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID":"$JOB_PULL_SINGULARITY_R_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
         JOB_STAGE1_STEP1_ID=$(echo "$JOB_STAGE1_STEP1" | awk '{print $4}')
     else
         ./scripts/phase1/phase1_step1.sh $(pwd)
@@ -1110,6 +1146,8 @@ nextflow_cleanup() {
 if [ "$TEST_MODE" = true ]; then
 
     print_test_message
+
+    pull_docker_image
 
     if [ "$SKIP_STAGE_1" = true ]; then
         echo "Skipping STAGE 1"
