@@ -1,0 +1,10 @@
+name: fishnet
+channels:
+ - conda-forge
+ - defaults
+dependencies:
+ - python=3.8.10
+ - pip
+ - pip:
+    - pandas==1.2.4
+    - numpy==1.22.4

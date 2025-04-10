@@ -31,6 +31,12 @@ Usage: fishnet.sh [options]
     --nxf-config <path/to/nxf.config>
         Specify a custom nextflow config to use
         Default: ./conf/fishnet.config using docker, ./conf/fishnet_slurm.config using singularity on SLURM
+    --conda
+        Configures (phase2_step2_default) to run using a conda environment in SLURM (much faster than singularity)
+        Default: false (runs phase2_step2_default using singularity)
+    --conda_env <conda_environment_name>
+        Specify a conda environment to use/create
+        Default: fishnet (creates a conda environment named fishnet)
     --FDR-threshold <float>
         Specify a custom FDR threshold cutoff
         Default: 0.05
@@ -59,10 +65,13 @@ THRESHOLDING_MODE_DEFAULT="default"
 THRESHOLDING_MODE_ALTERNATIVE="alternative"
 THRESHOLDING_MODE=$THRESHOLDING_MODE_DEFAULT
 SINGULARITY=false
+CONDA=false
+CONDA_ENV_DEFAULT="fishnet"
 CONTAINER_RUNTIME="DOCKER"
 NXF_CONFIG_DEFAULT_DOCKER="./conf/fishnet.config"
 NXF_CONFIG_DEFAULT_SINGULARITY="./conf/fishnet_slurm.config"
 NXF_CONFIG="$NXF_CONFIG_DEFAULT_DOCKER"
+conda_env_provided=false
 nxf_config_provided=false
 OUTPUT_DIR=$( readlink -f "./results/" )
 DATADIR="${OUTPUT_DIR}/data/"
@@ -110,6 +119,20 @@ while [[ $# -gt 0 ]]; do
             SINGULARITY=true
             CONTAINER_RUNTIME="SINGULARITY"
             shift
+            ;;
+        --conda)
+            CONDA=true
+            shift
+            ;;
+        --conda_env)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                CONDA_ENV="$2"
+                conda_env_provided=true
+                shift 2
+            else
+                echo "ERROR: --conda_env requires a path argument."
+                exit 1
+            fi
             ;;
         --nxf-config)
             # make sure we have a value and not another flag
@@ -194,6 +217,14 @@ if [ "$SINGULARITY" = true ]; then
     fi
 fi
 
+# check for conda
+if [ "$CONDA" = true ]; then
+    # if conda requested, but user did not specify --conda_env
+    if [ "$conda_env_provided" = false ]; then
+        CONDA_ENV="$CONDA_ENV_DEFAULT"
+    fi
+fi
+
 # print configs
 echo "Configs:"
 echo " - container run-time: $CONTAINER_RUNTIME"
@@ -202,7 +233,11 @@ if [ "$CONTAINER_RUNTIME" = "SINGULARITY" ]; then
 else
     docker --version
 fi
+if [ "$CONDA" = true ]; then
+    conda --version
+fi
 echo " - nextflow config: $NXF_CONFIG"
+
 ### set test parameters ###
 if [ "$TEST_MODE" = true ]; then
     TRAITPATH="./test/maleWC/maleWC.csv"
@@ -266,6 +301,7 @@ export NXF_CONFIG
 #   TODO: add to biocontainers 
 export container_python="docker://jungwooseok/dc_rp_genes:1.0"
 export container_R="docker://jungwooseok/r-webgestaltr:1.0"
+export CONDA_ENV
 
 #################
 ### FUNCTIONS ###
@@ -324,6 +360,16 @@ EOT
             JOB_PULL_SINGULARITY_R_ID=$( echo "$JOB_PULL_SINGULARITY_R" | awk '{print $4}')
         fi
     fi
+
+    # check for conda environment, create if not exist
+    if conda env list | awk '{print $1}' | grep -Fxq "$CONDA_ENV"; then
+        echo "Environment $CONDA_ENV found"
+    else
+        echo "Environment $CONDA_ENV not found...creating"
+        conda env create -f conf/fishnet_conda_environment.yml
+        echo "done"
+    fi
+
     export PULL_PYTHON_CONTAINER
     export PULL_R_CONTAINER
     export JOB_PULL_SINGULARITY_PYTHON_ID
@@ -585,7 +631,37 @@ phase2_step2_default() {
     create_tmp_threshold_network_pairs_default > $tmpfile
     if [ "$SINGULARITY" = true ]; then
         num_pairs=$( wc -l < $tmpfile )
-        JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step2_default
+#SBATCH --array=1-$num_pairs
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step2_default_%A_%a.out
+network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
+threshold=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
+echo \$network
+echo \$threshold
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_generate_rp_statistics.py \
+    --gene_set_path $genes_rpscores_filedir \
+    --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv \
+    --trait ${TRAITRR} \
+    --module_path ${MODULEFILEDIR}/\${network}.txt \
+    --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries/${TRAITRR}/ \
+    --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw/ \
+    --network \$network \
+    --threshold \$threshold \
+    --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
 #!/bin/bash
 #SBATCH -J phase2_step2_default
 #SBATCH --array=1-$num_pairs
@@ -609,7 +685,8 @@ singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
         --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
-        JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
+        fi
+            JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
     else
         while IFS=$'\t' read -r threshold network; do
             echo "Threshold $threshold, Network: $network"
