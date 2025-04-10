@@ -13,7 +13,7 @@ def summary_statistics_rp(trait, input_path, or_id, input_file_rr_id, rr_id, net
     if os.path.exists(original_run_summary_filepath):
         original_run_summary_df = pd.read_csv(original_run_summary_filepath)
     else:
-        print("FILE-NOT-FOUND")
+        print(f"FILE-NOT-FOUND: {original_run_summary_filepath}")
         return     
     summary_df = pd.DataFrame(columns = ["Ranks", "Average", "Median", "sd", "confidence_interval_95", "90_percentile", "95_percentile", "FDR", "num_MEA_passing", "original_run_percentile"])
 
@@ -21,10 +21,12 @@ def summary_statistics_rp(trait, input_path, or_id, input_file_rr_id, rr_id, net
     for rank in original_run_summary_df["threshold"]:
         # rank = (rank // 5) * 5 
 
-        rp_file = input_path + rr_id + "/results/raw/" + input_file_rr_id + "_" + str(int(rank)) + "_" + network  + "_rp_mea_passing_across_permutations.csv"
+        rank = int(rank)
+        rp_file = os.path.join(input_path, rr_id, "results/raw", f"{input_file_rr_id}_{rank}_{network}_rp_mea_passing_across_permutations.csv")
         if os.path.exists(rp_file):
             rp_all_output_df = pd.read_csv(rp_file)
         else:
+            print(f"FILE-NOT-FOUND: {rp_file}")
             continue
 
         temp_data = np.array(rp_all_output_df["MEA_passing_genes"]) 

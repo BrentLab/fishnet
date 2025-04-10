@@ -270,12 +270,87 @@ export container_R="docker://jungwooseok/r-webgestaltr:1.0"
 #################
 ### FUNCTIONS ###
 #################
+
+pull_docker_image() {
+
+    # boolean whether to pull or not (for job dependencies)
+    PULL_PYTHON_CONTAINER=false
+    PULL_R_CONTAINER=false
+    JOB_PULL_SINGULARITY_PYTHON_ID=false
+    JOB_PULL_SINGULARITY_R_ID=false
+
+    # pull docker images as singularity .sif files
+    if [ "$SINGULARITY" = true ]; then
+        # create dir to store .sif files
+        if [ ! -d "$(pwd)/singularity_images/" ]; then
+            mkdir "$(pwd)/singularity_images"
+        fi
+        # create tmp directory
+        if [ ! -d "$(pwd)/tmp" ]; then
+            mkdir "$(pwd)/tmp"
+        fi
+
+        container_python_docker=$container_python
+        container_R_docker=$container_R
+        export container_python="$(pwd)/singularity_images/dc_rp_genes.sif"
+        export container_R="$(pwd)/singularity_images/r_webgestaltr.sif"
+
+
+        # pull python container if not exist
+        if [ ! -f $container_python ]; then
+            PULL_PYTHON_CONTAINER=true
+            JOB_PULL_SINGULARITY_PYTHON=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J pull_singularity_container_python
+#SBATCH --mem=4G
+#SBATCH -o ./logs/pull_singularity_container_python_%J.out
+singularity pull $container_python $container_python_docker
+EOT
+)
+            JOB_PULL_SINGULARITY_PYTHON_ID=$( echo "$JOB_PULL_SINGULARITY_PYTHON" | awk '{print $4}')
+        fi
+
+        # pull R container if not exist
+        if [ ! -f $container_R ]; then
+            PULL_R_CONTAINER=true
+            JOB_PULL_SINGULARITY_R=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J pull_singularity_container_R
+#SBATCH --mem=4G
+#SBATCH -o ./logs/pull_singularity_container_R_%J.out
+singularity pull $container_R $container_R_docker
+EOT
+)
+            JOB_PULL_SINGULARITY_R_ID=$( echo "$JOB_PULL_SINGULARITY_R" | awk '{print $4}')
+        fi
+    fi
+    export PULL_PYTHON_CONTAINER
+    export PULL_R_CONTAINER
+    export JOB_PULL_SINGULARITY_PYTHON_ID
+    export JOB_PULL_SINGULARITY_R_ID
+}
+
 phase1_step1() {
 
     # (1) nextflow original run
     echo "# STEP 1.1: executing Nextflow MEA pipeline on original run"
+    echo $SINGULARITY
+    echo $PULL_PYTHON_CONTAINER
+    echo $PULL_R_CONTAINER
+    echo $JOB_PULL_SINGULARITY_PYTHON_ID
+    echo $JOB_PULL_SINGULARITY_R_ID
     if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP1=$(sbatch ./scripts/phase1/phase1_step1.sh $(pwd))
+        if [ "$PULL_PYTHON_CONTAINER" = true ]; then
+            if [ "$PULL_R_CONTAINER" = true ]; then
+                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID":"$JOB_PULL_SINGULARITY_R_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
+            else
+                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
+            fi
+        elif [ "$PULL_R_CONTAINER" = true ]; then
+                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_R_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
+        else
+            JOB_STAGE1_STEP1=$(sbatch ./scripts/phase1/phase1_step1.sh $(pwd))
+        fi
         JOB_STAGE1_STEP1_ID=$(echo "$JOB_STAGE1_STEP1" | awk '{print $4}')
     else
         ./scripts/phase1/phase1_step1.sh $(pwd)
@@ -1110,6 +1185,8 @@ nextflow_cleanup() {
 if [ "$TEST_MODE" = true ]; then
 
     print_test_message
+
+    pull_docker_image
 
     if [ "$SKIP_STAGE_1" = true ]; then
         echo "Skipping STAGE 1"
