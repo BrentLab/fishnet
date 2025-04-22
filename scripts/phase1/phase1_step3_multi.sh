@@ -21,6 +21,6 @@ nextflow run ./scripts/phase1/nextflow/main.nf \
     --bonferroni_alpha $BONFERRONI_ALPHA \
     --random_permutation \
     --numRP $NUM_PERMUTATIONS \
-    --GO_summaries_path "GO_summaries_RP" \
-    --masterSummaries_path "masterSummaries_RP" \
+    --GO_summaries_path "GO_summaries" \
+    --masterSummaries_path "masterSummaries" \
     -c $NXF_CONFIG
