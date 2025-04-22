@@ -7,7 +7,7 @@ process RANDOM_PERMUTATION {
         'quay.io/biocontainers/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0' }"
 
     label "process_low"
-    publishDir "./results/", mode: 'copy'
+    publishDir "./results/${params.pipeline}", mode: 'copy'
 
     output:
     path("RPscores/${params.trait}/*.csv"), emit: rp_scores
@@ -30,7 +30,7 @@ process PREPROCESS_FOR_PASCAL {
         'quay.io/biocontainers/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0' }"
 
     label "process_low"
-    publishDir "./results/", pattern: "pascalInput/*", mode: 'copy'
+    publishDir "./results/${params.pipeline}/", pattern: "pascalInput/*", mode: 'copy'
 
     input:
     path pvalFile
@@ -57,7 +57,7 @@ process RUN_PASCAL {
 
     container 'jungwooseok/mea_pascal:1.1' // TODO: add to biocontainers
     label "process_low"
-    publishDir "./results/", pattern: "pascalOutput/*", mode: 'copy'
+    publishDir "./results/${params.pipeline}/", pattern: "pascalOutput/*", mode: 'copy'
 
     input:
     path(geneScoreFile)
@@ -87,7 +87,7 @@ process POSTPROCESS_PASCAL_OUTPUT {
         'https://depot.galaxyproject.org/singularity/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0' :
         'quay.io/biocontainers/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0' }"
     label "process_low"
-    publishDir "./results/", pattern: "significantModules/*", mode: 'copy'
+    publishDir "./results/${params.pipeline}/", pattern: "significantModules/*", mode: 'copy'
 
     input:
     path(pascalOutputFile)
@@ -113,7 +113,7 @@ process POSTPROCESS_PASCAL_OUTPUT {
 process GO_ANALYSIS {
 
     container 'jungwooseok/r-webgestaltr:1.0' // TODO: add to biocontainers
-    publishDir "./results/", pattern: "${params.GO_summaries_path}/${params.trait}/*", mode: 'copy' // copy ORA results to current location.
+    publishDir "./results/${params.pipeline}/", pattern: "${params.GO_summaries_path}/${params.trait}/*", mode: 'copy' // copy ORA results to current location.
     label "process_low"
 
     input:
@@ -141,7 +141,7 @@ process MERGE_RESULTS {
         'https://depot.galaxyproject.org/singularity/pandas:1.1.5' :
         'quay.io/biocontainers/pandas:1.1.5' }"
     label "process_low"
-    publishDir "./results/${params.masterSummaries_path}/", mode: 'copy'
+    publishDir "./results/${params.pipeline}/${params.masterSummaries_path}/", mode: 'copy'
 
     input:
     path(masterSummaryPiece)
