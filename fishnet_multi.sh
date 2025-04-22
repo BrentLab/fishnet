@@ -40,19 +40,19 @@ Usage: fishnet.sh [options]
     --percentile-threshold <float>
         Specify a custom percentile threshold cutoff
         Default: 0.99
+    --modules <path/to/modules/directory/>
+        Path to directory containing network modules.
+        Network module files must be tab-delimited .txt files
+        (e.g. data/modules/ker_based/)
     --study <path/to/study/directory>
         Path to directory containing trait subdirectories with input summary statistics files.
         Runs FISHNET for all traits in this directory.
         Summary statistics files must be CSV files with colnames "Genes" and "p_vals".
         Filename must not include any '_', '-', or '.' characters.
         (e.g. --study data/pvals/maleWC/)
-    --modules <path/to/modules/directory/>
-        Path to directory containing network modules.
-        Network module files must be tab-delimited .txt files
-        (e.g. data/modules/ker_based/)
-    --random
-        Runs the random permutation
-        Default: false
+    --study-random <path/to/random/permutation/study/directory>
+        Path to the directory containing uniformly distributed p-values for random permutations.
+        (e.g. --study data/pvals/maleWCRR/)
     --num-permutations <integer>
         Configures the number of permutations (only relevant with --random)
         Default: 10
@@ -63,7 +63,6 @@ EOF
 TEST_MODE=false
 SKIP_STAGE_1=false
 SKIP_STAGE_2=false
-RANDOM_PERMUTATION=false
 THRESHOLDING_MODE_DEFAULT="default"
 THRESHOLDING_MODE_ALTERNATIVE="alternative"
 THRESHOLDING_MODE=$THRESHOLDING_MODE_DEFAULT
@@ -76,9 +75,7 @@ NXF_CONFIG_DEFAULT_SINGULARITY="./conf/fishnet_slurm.config"
 NXF_CONFIG="$NXF_CONFIG_DEFAULT_DOCKER"
 conda_env_provided=false
 nxf_config_provided=false
-OUTPUT_DIR=$( readlink -f "./results/" )
-DATADIR="${OUTPUT_DIR}/data/"
-MODULEDIR="${DATADIR}/modules/"
+RESULTS_PATH=$( readlink -f "./results/" )
 GENECOLNAME="Genes"
 PVALCOLNAME="p_vals"
 BONFERRONI_ALPHA=0.05 # for phase 1 nextflow scripts
@@ -87,7 +84,9 @@ FDR_THRESHOLD=0.05
 PERCENTILE_THRESHOLD=0.99
 NUM_PERMUTATIONS=10
 STUDY_PATH="NONE"
+STUDY_RANDOM_PATH="NONE"
 STUDY="NONE"
+STUDY_RANDOM="NONE"
 
 
 # print usage if no args
@@ -189,9 +188,15 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
-        --random)
-            RANDOM_PERMUTATION=true
-            shift
+        --study-random)
+            # make sure we have a value and not another flag
+            if [[ -n "$2" && ! "$2" =~ ^- && -d "$2" ]]; then
+                STUDY_RANDOM_PATH="$2"
+                shift 2
+            else
+                echo "ERROR: --study-random requires a valid directory path.."
+                exit 1
+            fi
             ;;
         --num-permutations)
             # make sure we have a value and not another flag
@@ -245,12 +250,17 @@ echo " - nextflow config: $NXF_CONFIG"
 ### set test parameters ###
 if [ "$TEST_MODE" = true ]; then
     STUDY_PATH="./data/pvals/dreamGWASORKBtest"
+    STUDY_RANDOM_PATH="./data/pvals/dreamGWASRRKBtest"
     MODULEFILEPATH="./data/modules/ker_based/"
 else
     # check for required input parameters
     # input trait file
     if [ ! -d "$STUDY_PATH" ]; then
         echo "--study $STUDY_PATH NOT FOUND"
+        exit 1
+    fi
+    if [ ! -d "$STUDY_RANDOM_PATH" ]; then
+        echo "--study $STUDY_RANDOM_PATH NOT FOUND"
         exit 1
     fi
     # input modules directory
@@ -260,28 +270,42 @@ else
     fi
 fi
 
+# TODO: allow this to run without specifying --study-random
+#       in which case, should generate uniformly distributed p-values for each study trait
+
 
 # ensure absolutepaths for nextflow
 STUDY_PATH=$( readlink -f "$STUDY_PATH" )
 STUDY=$( basename $STUDY_PATH )
+STUDY_RANDOM_PATH=$( readlink -f "$STUDY_RANDOM_PATH" )
+STUDY_RANDOM=$( basename $STUDY_RANDOM_PATH )
 MODULEFILEPATH=$( readlink -f "$MODULEFILEPATH" )
 
 # check and list traits in input study path
 TRAITDIRS=($(find "$STUDY_PATH" -mindepth 1 -maxdepth 1 -type d))
 NUM_TRAITS=${#TRAITDIRS[@]}
-echo "Found ${NUM_TRAITS}  traits"
+echo "# Found ${NUM_TRAITS} traits"
 for trait in "${TRAITDIRS[@]}"; do
     trait=$( basename $trait )
     echo "> $trait"
 done
 
+RESULTS_PATH_OR="${RESULTS_PATH}/${STUDY}"
+RESULTS_PATH_RR="${RESULTS_PATH}/${STUDY_RANDOM}"
+
+# record number of module files
+NUM_MODULE_FILES=$( ls -1 ${MODULEFILEPATH}/*.txt 2>/dev/null | wc -l)
+echo "# FOUND ${NUM_MODULE_FILES} module files"
 
 ### export parameters ###
 export STUDY_PATH
 export STUDY
+export STUDY_RANDOM_PATH
+export STUDY_RANDOM
 export NUM_TRAITS
 export RANDOM_PERMUTATION
 export NUM_PERMUTATIONS
+export NUM_MODULE_FILES
 export PVALFILEDIR
 export PVALFILEPATH
 export PVALFILEPATHRR
@@ -291,7 +315,8 @@ export NUMTESTS
 export GENECOLNAME
 export PVALCOLNAME
 export BONFERRONI_ALPHA
-export OUTPUT_DIR
+export RESULTS_PATH
+export RESULTS_PATH_OR
 export FDR_THRESHOLD
 export PERCENTILE_THRESHOLD
 export NXF_CONFIG
@@ -381,7 +406,7 @@ EOT
 
 phase1_step1() {
 
-    # (1) nextflow original run
+    # (4.1) nextflow (original)
     echo "# STEP 1.1: executing Nextflow MEA pipeline on original run"
     #echo $SINGULARITY
     #echo $PULL_PYTHON_CONTAINER
@@ -405,16 +430,125 @@ phase1_step1() {
         elif [ "$PULL_R_CONTAINER" = true ]; then
                 JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_R_ID" --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile)
         else
-            JOB_STAGE1_STEP1=$(sbatch  --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile)
+            JOB_STAGE1_STEP1=$(sbatch --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile)
         fi
         JOB_STAGE1_STEP1_ID=$(echo "$JOB_STAGE1_STEP1" | awk '{print $4}')
     else
         ./scripts/phase1/phase1_step1_multi.sh $(pwd)
     fi
 
-    # TODO: compile results
+    # (4.2) compile results (original)
+    SUMMARIES_PATH_ORIGINAL="${RESULTS_PATH_OR}/masterSummaries/summaries/"
+    if [ "$CONDA" = true ]; then
+        JOB_STAGE1_STEP4_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase1_step4_original
+#SBATCH -o ./logs/phase1_step4_original_%J.out
+source activate $CONDA_ENV
+python3 ./scripts/phase1/compile_results.py \
+    --dirPath $SUMMARIES_PATH_ORIGINAL \
+    --identifier $STUDY \
+    --output $RESULTS_PATH_OR
+EOT
+)
+        JOB_STAGE1_STEP4_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP4_ORIGINAL" | awk '{print $4}')
+    elif [ "$SINGULARITY" = true ]; then
+        JOB_STAGE1_STEP4_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase1_step4_original
+#SBATCH -o ./logs/phase1_step4_original_%J.out
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+python3 ./scripts/phase1/compile_results.py \
+    --dirPath $SUMMARIES_PATH_ORIGINAL \
+    --identifier $STUDY \
+    --output $RESULTS_PATH_OR
+EOT
+)
+        JOB_STAGE1_STEP4_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP4_ORIGINAL" | awk '{print $4}')
+    else
+        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
+            "python3 ./scripts/phase1/compile_results.py \
+                --dirPath $SUMMARIES_PATH_ORIGINAL \
+                --identifier $TRAIT \
+                --output $RESULTS_PATH"
+    fi
 }
 
+phase1_step3() {
+
+# TODO: generate uniform p-values if --study-random not specified
+#    # (2) generate uniform p-values
+#    echo "# STEP 1.2: generating uniformly distributed p-values"
+#    if [ "$SINGULARITY" = true ]; then
+#        JOB_STAGE1_STEP2=$(sbatch <<EOT
+##!/bin/bash
+##SBATCH -J phase1_step2
+##SBATCH -o ./logs/phase1_step2_%J.out
+#singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+#python3 ./scripts/phase1/generate_uniform_pvals.py \
+#    --genes_filepath $PVALFILEPATH
+#EOT
+#)
+#        JOB_STAGE1_STEP2_ID=$(echo "$JOB_STAGE1_STEP2" | awk '{print $4}')
+#    else
+#        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python  /bin/bash -c \
+#            "python3 ./scripts/phase1/generate_uniform_pvals.py \
+#            --genes_filepath $PVALFILEPATH"
+#    fi
+
+
+    # (3) nextflow random permutation run
+    echo "# STEP 1.3: executing Nextflow MEA pipeline on random permutations"
+    echo "executing Nextflow MEA pipeline on random permutations"
+    if [ "$SINGULARITY" = true ]; then
+        JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP2_ID" ./scripts/phase1/phase1_step3_multi.sh $(pwd))
+        JOB_STAGE1_STEP3_ID=$(echo "$JOB_STAGE1_STEP3" | awk '{print $4}')
+    else
+        ./scripts/phase1/phase1_step3_multi.sh $(pwd)
+    fi
+
+    # (4.2)
+    SUMMARIES_PATH_PERMUTATION="${RESULTS_PATH_RR}/masterSummaries_RP/summaries/"
+    # dynamically set memory allocation based on number of modules and number of permutations
+    # currently: 2 MB * N(modules) * N(permutations)
+    MEM_ALLOCATION=$(( 2 * $NUM_MODULE_FILES * $NUM_PERMUTATIONS ))
+    if [ "$CONDA" = true ]; then
+        JOB_STAGE1_STEP4_PERMUTATION=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP3_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase1_step4_permutation
+#SBATCH --mem ${MEM_ALLOCATION}M
+#SBATCH -o ./logs/phase1_step4_permutation_%J.out
+source activate $CONDA_ENV
+python3 ./scripts/phase1/compile_results.py \
+    --dirPath $SUMMARIES_PATH_PERMUTATION \
+    --identifier $STUDY_RANDOM \
+    --output $RESULTS_PATH_RR
+EOT
+)
+        JOB_STAGE1_STEP4_PERMUTATION_ID=$(echo "$JOB_STAGE1_STEP4_PERMUTATION" | awk '{print $4}')
+    elif [ "$SINGULARITY" = true ]; then
+        JOB_STAGE1_STEP4_PERMUTATION=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP3_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase1_step4_permutation
+#SBATCH --mem ${MEM_ALLOCATION}M
+#SBATCH -o ./logs/phase1_step4_permutation_%J.out
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+python3 ./scripts/phase1/compile_results.py \
+    --dirPath $SUMMARIES_PATH_PERMUTATION \
+    --identifier $STUDY_RANDOM \
+    --output $RESULTS_PATH_RR
+EOT
+)
+        JOB_STAGE1_STEP4_PERMUTATION_ID=$(echo "$JOB_STAGE1_STEP4_PERMUTATION" | awk '{print $4}')
+    else
+        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
+            "python3 ./scripts/phase1/compile_results.py \
+                --dirPath $summaries_path_permutation \
+                --identifier ${TRAITRR} \
+                --output $OUTPUT_DIR"
+    fi
+
+}
 
 print_test_message() {
     echo "
@@ -451,9 +585,9 @@ else
     ###############
     print_phase_message 1
 
-    phase1_step1
+    #phase1_step1
 
-    #phase1_step3
+    phase1_step3
 
     #phase1_step5
 
