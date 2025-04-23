@@ -408,12 +408,6 @@ phase1_step1() {
 
     # (4.1) nextflow (original)
     echo "# STEP 1.1: executing Nextflow MEA pipeline on original run"
-    #echo $SINGULARITY
-    #echo $PULL_PYTHON_CONTAINER
-    #echo $PULL_R_CONTAINER
-    #echo $JOB_PULL_SINGULARITY_PYTHON_ID
-    #echo $JOB_PULL_SINGULARITY_R_ID
-    # TODO: CHECK FOR ORIGINAL VS RANDOM PERMUTATION RUNS
 
     # MULTI-TRAIT: generate temporary SBATCH array job file
     tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
@@ -436,14 +430,17 @@ phase1_step1() {
     else
         ./scripts/phase1/phase1_step1_multi.sh $(pwd)
     fi
+}
+
+phase1_step2() {
 
     # (4.2) compile results (original)
     SUMMARIES_PATH_ORIGINAL="${RESULTS_PATH_OR}/masterSummaries/summaries/"
     if [ "$CONDA" = true ]; then
-        JOB_STAGE1_STEP4_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
+        JOB_STAGE1_STEP2_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase1_step4_original
-#SBATCH -o ./logs/phase1_step4_original_%J.out
+#SBATCH -J phase1_step2_original
+#SBATCH -o ./logs/phase1_step2_original_%J.out
 source activate $CONDA_ENV
 python3 ./scripts/phase1/compile_results.py \
     --dirPath $SUMMARIES_PATH_ORIGINAL \
@@ -451,12 +448,12 @@ python3 ./scripts/phase1/compile_results.py \
     --output $RESULTS_PATH_OR
 EOT
 )
-        JOB_STAGE1_STEP4_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP4_ORIGINAL" | awk '{print $4}')
+        JOB_STAGE1_STEP2_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP2_ORIGINAL" | awk '{print $4}')
     elif [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP4_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
+        JOB_STAGE1_STEP2_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase1_step4_original
-#SBATCH -o ./logs/phase1_step4_original_%J.out
+#SBATCH -J phase1_step2_original
+#SBATCH -o ./logs/phase1_step2_original_%J.out
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
 python3 ./scripts/phase1/compile_results.py \
     --dirPath $SUMMARIES_PATH_ORIGINAL \
@@ -464,7 +461,7 @@ python3 ./scripts/phase1/compile_results.py \
     --output $RESULTS_PATH_OR
 EOT
 )
-        JOB_STAGE1_STEP4_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP4_ORIGINAL" | awk '{print $4}')
+        JOB_STAGE1_STEP2_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP2_ORIGINAL" | awk '{print $4}')
     else
         docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
             "python3 ./scripts/phase1/compile_results.py \
@@ -476,39 +473,24 @@ EOT
 
 phase1_step3() {
 
-# TODO: generate uniform p-values if --study-random not specified
-#    # (2) generate uniform p-values
-#    echo "# STEP 1.2: generating uniformly distributed p-values"
-#    if [ "$SINGULARITY" = true ]; then
-#        JOB_STAGE1_STEP2=$(sbatch <<EOT
-##!/bin/bash
-##SBATCH -J phase1_step2
-##SBATCH -o ./logs/phase1_step2_%J.out
-#singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-#python3 ./scripts/phase1/generate_uniform_pvals.py \
-#    --genes_filepath $PVALFILEPATH
-#EOT
-#)
-#        JOB_STAGE1_STEP2_ID=$(echo "$JOB_STAGE1_STEP2" | awk '{print $4}')
-#    else
-#        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python  /bin/bash -c \
-#            "python3 ./scripts/phase1/generate_uniform_pvals.py \
-#            --genes_filepath $PVALFILEPATH"
-#    fi
-
+    # TODO: generate uniform p-values if --study-random not specified
 
     # (3) nextflow random permutation run
     echo "# STEP 1.3: executing Nextflow MEA pipeline on random permutations"
     echo "executing Nextflow MEA pipeline on random permutations"
     if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP2_ID" ./scripts/phase1/phase1_step3_multi.sh $(pwd))
+        #JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP2_ID" ./scripts/phase1/phase1_step3_multi.sh $(pwd))
+        JOB_STAGE1_STEP3=$(sbatch ./scripts/phase1/phase1_step3_multi.sh $(pwd))
         JOB_STAGE1_STEP3_ID=$(echo "$JOB_STAGE1_STEP3" | awk '{print $4}')
     else
         ./scripts/phase1/phase1_step3_multi.sh $(pwd)
     fi
+}
+
+phase1_step4() {
 
     # (4.2)
-    SUMMARIES_PATH_PERMUTATION="${RESULTS_PATH_RR}/masterSummaries_RP/summaries/"
+    SUMMARIES_PATH_PERMUTATION="${RESULTS_PATH_RR}/masterSummaries/summaries/"
     # dynamically set memory allocation based on number of modules and number of permutations
     # currently: 2 MB * N(modules) * N(permutations)
     MEM_ALLOCATION=$(( 2 * $NUM_MODULE_FILES * $NUM_PERMUTATIONS ))
@@ -550,6 +532,8 @@ EOT
 
 }
 
+
+
 print_test_message() {
     echo "
 ########################################
@@ -564,7 +548,26 @@ print_phase_message() {
 ###############
 "
 }
-
+print_phase_completion() {
+    echo "
+########################
+### PHASE $1 COMPLETE ###
+########################
+"
+}
+print_phase_completion_message() {
+    if [ "$SINGULARITY" = true ]; then
+        PHASE=$1
+        JOBID=$2
+        while squeue -j "$JOBID" | grep -q "$JOBID"; do
+            sleep 5
+        done
+    fi
+    print_phase_completion $PHASE
+}
+nextflow_cleanup() {
+    rm -rf .nextflow* work/
+}
 
 ############
 ### MAIN ###
@@ -585,15 +588,17 @@ else
     ###############
     print_phase_message 1
 
-    #phase1_step1
+    phase1_step1
+
+    phase1_step2
 
     phase1_step3
 
-    #phase1_step5
+    phase1_step4
 
-    #print_phase1_completion_message
+    print_phase_completion_message 1 $JOB_STAGE1_STEP4_PERMUTATION_ID
 
-    #nextflow_cleanup
+    nextflow_cleanup
 fi
 
 #if [ "$SKIP_STAGE_2" = true ]; then
