@@ -181,7 +181,7 @@ while [[ $# -gt 0 ]]; do
         --modules)
             # make sure we have a value and not another flag
             if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                MODULEFILEPATH="$2"
+                MODULE_FILE_PATH="$2"
                 shift 2
             else
                 echo "ERROR: --modules requires a string path argument."
@@ -251,7 +251,7 @@ echo " - nextflow config: $NXF_CONFIG"
 if [ "$TEST_MODE" = true ]; then
     STUDY_PATH="./data/pvals/dreamGWASORKBtest"
     STUDY_RANDOM_PATH="./data/pvals/dreamGWASRRKBtest"
-    MODULEFILEPATH="./data/modules/ker_based/"
+    MODULE_FILE_PATH="./data/modules/ker_based/"
 else
     # check for required input parameters
     # input trait file
@@ -264,8 +264,8 @@ else
         exit 1
     fi
     # input modules directory
-    if [ ! -d "$MODULEFILEPATH" ]; then
-        echo "--modules $MODULEFILEPATH DIRECTORY NOT FOUND"
+    if [ ! -d "$MODULE_FILE_PATH" ]; then
+        echo "--modules $MODULE_FILE_PATH DIRECTORY NOT FOUND"
         exit 1
     fi
 fi
@@ -279,7 +279,7 @@ STUDY_PATH=$( readlink -f "$STUDY_PATH" )
 STUDY=$( basename $STUDY_PATH )
 STUDY_RANDOM_PATH=$( readlink -f "$STUDY_RANDOM_PATH" )
 STUDY_RANDOM=$( basename $STUDY_RANDOM_PATH )
-MODULEFILEPATH=$( readlink -f "$MODULEFILEPATH" )
+MODULE_FILE_PATH=$( readlink -f "$MODULE_FILE_PATH" )
 
 # check and list traits in input study path
 TRAITDIRS=($(find "$STUDY_PATH" -mindepth 1 -maxdepth 1 -type d))
@@ -294,7 +294,7 @@ RESULTS_PATH_OR="${RESULTS_PATH}/${STUDY}"
 RESULTS_PATH_RR="${RESULTS_PATH}/${STUDY_RANDOM}"
 
 # record number of module files
-NUM_MODULE_FILES=$( ls -1 ${MODULEFILEPATH}/*.txt 2>/dev/null | wc -l)
+NUM_MODULE_FILES=$( ls -1 ${MODULE_FILE_PATH}/*.txt 2>/dev/null | wc -l)
 echo "# FOUND ${NUM_MODULE_FILES} module files"
 
 ### export parameters ###
@@ -310,7 +310,7 @@ export PVALFILEDIR
 export PVALFILEPATH
 export PVALFILEPATHRR
 export MODULE_ALGO
-export MODULEFILEPATH
+export MODULE_FILE_PATH
 export NUMTESTS
 export GENECOLNAME
 export PVALCOLNAME
@@ -329,9 +329,9 @@ export container_python="docker://jungwooseok/dc_rp_genes:1.0"
 export container_R="docker://jungwooseok/r-webgestaltr:1.0"
 export CONDA_ENV
 
-#################
-### FUNCTIONS ###
-#################
+#########################
+### PHASE 1 FUNCTIONS ###
+#########################
 pull_docker_image() {
 
     # boolean whether to pull or not (for job dependencies)
@@ -389,9 +389,9 @@ EOT
     # check for conda environment, create if not exist
     if [ "$CONDA" = true ]; then
         if conda env list | awk '{print $1}' | grep -Fxq "$CONDA_ENV"; then
-            echo "Environment $CONDA_ENV found"
+            echo "Conda environment $CONDA_ENV found"
         else
-            echo "Environment $CONDA_ENV not found...creating"
+            echo "Conda environment $CONDA_ENV not found...creating"
             conda env create -f conf/fishnet_conda_environment.yml
             echo "done"
         fi
@@ -525,15 +525,104 @@ EOT
     else
         docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
             "python3 ./scripts/phase1/compile_results.py \
-                --dirPath $summaries_path_permutation \
-                --identifier ${TRAITRR} \
-                --output $OUTPUT_DIR"
+                --dirPath $SUMMARIES_PATH_PERMUTATION \
+                --identifier $STUDY_RANDOM \
+                --output $RESULTS_PATH_RR"
     fi
+}
 
+
+#########################
+### PHASE 2 FUNCTIONS ###
+#########################
+phase2_step0() {
+    # (0) filter the summary file for original/permuted runs
+    echo "# STEP 2.0: filtering + parsing master_summary.csv files"
+    cp "${RESULTS_PATH_OR}/master_summary_${STUDY}.csv" "${RESULTS_PATH_OR}/master_summary.csv"
+    ( head -n 1 "${RESULTS_PATH_OR}/master_summary.csv"; grep 'True' "${RESULTS_PATH_OR}/master_summary.csv" ) > "${RESULTS_PATH_OR}/master_summary_filtered.csv"
+    cut -d ',' -f 1-8 "${RESULTS_PATH_OR}/master_summary_filtered.csv" > "${RESULTS_PATH_OR}/master_summary_filtered_parsed.csv"
+
+    cp "${RESULTS_PATH_RR}/master_summary_${STUDY_RANDOM}.csv" "${RESULTS_PATH_RR}/master_summary.csv"
+    ( head -n 1 "${RESULTS_PATH_RR}/master_summary.csv"; grep 'True' "${RESULTS_PATH_RR}/master_summary.csv" ) > "${RESULTS_PATH_RR}/master_summary_filtered.csv"
+    cut -d ',' -f 1-8 "${RESULTS_PATH_RR}/master_summary_filtered.csv" > "${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv"
+}
+
+phase2_step1_default() {
+    ## (1) generate statistics for original run
+    echo "# STEP 2.1: generating statistics for original run"
+    if [ "$SINGULARITY" = true ]; then
+
+        # generates tab-delimited file with all pairs
+        # of module networks and traits for array job
+        generate_combinations() {
+            local networks_dir="$1"
+            local study_dir="$2"
+            local output_file="$3"
+
+            # clear output file
+            > "$output_file"
+
+            for network_file in "$networks_dir"/*.txt; do
+                network_name=$(basename "$network_file" .txt)
+                for trait in "$study_dir"/*/; do
+                    trait_name=$(basename "$trait")
+                    echo -e "${network_name}\t${trait_name}" >> "$output_file"
+                done
+            done
+        }
+
+        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+        generate_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+        NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
+
+        JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step1_default
+#SBATCH --mem-per-cpu=4G
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH -o ./logs/phase2_step1_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_generate_or_statistics.py \
+        --gene_set_path \$PVALFILEPATH \
+        --master_summary_path ${RESULTS_PATH_OR}/master_summary_filtered_parsed.csv \
+        --trait \$TRAIT  \
+        --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+        --go_path ${RESULTS_PATH_OR}/GO_summaries/\${TRAIT}/ \
+        --study $STUDY \
+        --output_path ${RESULTS_PATH_OR}/results/raw/ \
+        --network \$NETWORK
+EOT
+)
+        #rm $tmpfile
+        JOB_STAGE2_STEP1_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP1_DEFAULT" | awk '{print $4}')
+    else
+        for network in `ls ${MODULEFILEDIR}/`;
+        do
+            echo "Network: $network"
+            network="${network%.*}" # remove extension
+            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
+                "python3 ./scripts/phase2/dc_generate_or_statistics.py \
+                    --gene_set_path $PVALFILEDIR \
+                    --master_summary_path ${OUTPUT_DIR}/${TRAIT}/master_summary_filtered_parsed.csv \
+                    --trait $TRAIT  \
+                    --module_path ${MODULEFILEDIR}/${network}.txt \
+                    --go_path ${OUTPUT_DIR}/${TRAIT}/GO_summaries/${TRAIT}/ \
+                    --study $TRAIT \
+                    --output_path ${OUTPUT_DIR}/${TRAIT}/results/raw/ \
+                    --network $network"
+        done
+    fi
 }
 
 
 
+#########################
+### UTILITY FUNCTIONS ###
+#########################
 print_test_message() {
     echo "
 ########################################
@@ -546,6 +635,13 @@ print_phase_message() {
 ###############
 ### PHASE $1 ###
 ###############
+"
+}
+print_default_thresholding_message() {
+    echo "
+##########################
+## DEFAULT THRESHOLDING ##
+##########################
 "
 }
 print_phase_completion() {
@@ -568,6 +664,8 @@ print_phase_completion_message() {
 nextflow_cleanup() {
     rm -rf .nextflow* work/
 }
+
+
 
 ############
 ### MAIN ###
@@ -601,59 +699,59 @@ else
     nextflow_cleanup
 fi
 
-#if [ "$SKIP_STAGE_2" = true ]; then
-#    echo "Skipping STAGE 2"
-#else
-#    ###############
-#    ### PHASE 2 ###
-#    ###############
-#
-#    print_phase_message 2
-#
-#    phase2_step0
-#
-#    if [ "$THRESHOLDING_MODE" = "$THRESHOLDING_MODE_DEFAULT" ]; then
-#        ##########################
-#        ## DEFAULT THRESHOLDING ##
-#        ##########################
-#
-#        print_default_thresholding_message
-#
-#        phase2_step1_default
-#
-#        phase2_step2_default
-#
-#        phase2_step3_default
-#
-#        phase2_step4_default
-#
-#        print_phase2_completion_message $JOB_STAGE2_STEP4_DEFAULT_ID
-#
-#    else
-#        ##############################
-#        ## ALTERNATIVE THRESHOLDING ##
-#        ##############################
-#        print_alternative_thresholding_message
-#
-#        phase2_step1_alternate
-#
-#        phase2_step2_original_alternate
-#
-#        phase2_step2_permutation_alternate
-#
-#        phase2_step3_original_alternate
-#
-#        phase2_step3_permutation_alternate
-#
-#        phase2_step4_alternate
-#
-#        phase2_step5_alternate
-#
-#        phase2_step6_alternate
-#
-#        phase2_step7_alternate
-#
-#        print_phase2_completion_message $JOB_STAGE2_STEP7_ALTERNATE_ID
-#    fi
-#fi
+if [ "$SKIP_STAGE_2" = true ]; then
+    echo "Skipping STAGE 2"
+else
+    ###############
+    ### PHASE 2 ###
+    ###############
+
+    print_phase_message 2
+
+    phase2_step0
+
+    if [ "$THRESHOLDING_MODE" = "$THRESHOLDING_MODE_DEFAULT" ]; then
+        ##########################
+        ## DEFAULT THRESHOLDING ##
+        ##########################
+
+        print_default_thresholding_message
+
+        phase2_step1_default
+
+        #phase2_step2_default
+
+        #phase2_step3_default
+
+        #phase2_step4_default
+
+        #print_phase_completion_message 2 $JOB_STAGE2_STEP4_DEFAULT_ID
+
+    else
+        ##############################
+        ## ALTERNATIVE THRESHOLDING ##
+        ##############################
+        print_alternative_thresholding_message
+
+        phase2_step1_alternate
+
+        phase2_step2_original_alternate
+
+        phase2_step2_permutation_alternate
+
+        phase2_step3_original_alternate
+
+        phase2_step3_permutation_alternate
+
+        phase2_step4_alternate
+
+        phase2_step5_alternate
+
+        phase2_step6_alternate
+
+        phase2_step7_alternate
+
+        print_phase_completion_message 2 $JOB_STAGE2_STEP7_ALTERNATE_ID
+    fi
+fi
 echo "### FISHNET COMPLETE ###"
