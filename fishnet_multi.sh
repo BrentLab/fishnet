@@ -297,6 +297,9 @@ RESULTS_PATH_RR="${RESULTS_PATH}/${STUDY_RANDOM}"
 NUM_MODULE_FILES=$( ls -1 ${MODULE_FILE_PATH}/*.txt 2>/dev/null | wc -l)
 echo "# FOUND ${NUM_MODULE_FILES} module files"
 
+# number of genes for random permutation
+NUMTESTS_RANDOM=$(( $(wc -l < "${STUDY_RANDOM_PATH}/${STUDY_RANDOM}.csv")  - 1 ))
+
 ### export parameters ###
 export STUDY_PATH
 export STUDY
@@ -311,7 +314,7 @@ export PVALFILEPATH
 export PVALFILEPATHRR
 export MODULE_ALGO
 export MODULE_FILE_PATH
-export NUMTESTS
+export NUMTESTS_RANDOM
 export GENECOLNAME
 export PVALCOLNAME
 export BONFERRONI_ALPHA
@@ -618,6 +621,118 @@ EOT
     fi
 }
 
+phase2_step2_default() {
+
+    # (2.2) generate statistics for permutation run
+    echo "# STEP 2.2: generating statistics for permutation runs"
+
+    # generates tab-delimited file with all pairs of
+    # module newtorks and thresholds for array job
+    create_tmp_threshold_network_pairs_default() {
+        local output_file="$1"
+
+        # clear output file
+        > "$output_file"
+
+        # 1. take 25% of number of genes form original p-values input file
+        local ROUNDED_25=$(( (25 * NUMTESTS_RANDOM + 50) / 100 ))
+        # 2. range 10..{1} take nearest multiple of 10
+        local MAX_THRESHOLD=$(( ROUNDED_25 - (ROUNDED_25 % 10) ))
+        local THRESHOLDS=()
+        for (( i=10; i<=MAX_THRESHOLD; i+=10 )); do
+            THRESHOLDS+=( "$i" )
+        done
+
+        local MODULES=( $(ls ${MODULE_FILE_PATH}/*.txt) )
+        for f in "${MODULES[@]}"; do
+            BASE="$(basename "$f" .txt )"
+            for t in "${THRESHOLDS[@]}"; do
+                echo -e "${t}\t${BASE}" >> "$output_file"
+            done
+        done
+    }
+
+    GENES_RPSCORES_FILEDIR="${RESULTS_PATH_RR}/RPscores/${STUDY_RANDOM}"
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    create_tmp_threshold_network_pairs_default $tmpfile
+
+    if [ "$SINGULARITY" = true ]; then
+        NUM_PAIRS=$( wc -l < $tmpfile )
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            #JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
+            JOB_STAGE2_STEP2_DEFAULT=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step2_default
+#SBATCH --array=1-$NUM_PAIRS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step2_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
+THRESHOLD=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
+echo \$NETWORK
+echo \$THRESHOLD
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_generate_rp_statistics.py \
+    --gene_set_path $GENES_RPSCORES_FILEDIR \
+    --master_summary_path ${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv \
+    --trait ${STUDY_RANDOM} \
+    --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+    --go_path ${RESULTS_PATH_RR}/GO_summaries/${STUDY_RANDOM}/ \
+    --output_path ${RESULTS_PATH_RR}/results/raw/ \
+    --network \$NETWORK \
+    --threshold \$THRESHOLD \
+    --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step2_default
+#SBATCH --array=1-$num_pairs
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step2_default_%A_%a.out
+network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
+threshold=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
+echo \$network
+echo \$threshold
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_generate_rp_statistics.py \
+        --gene_set_path $genes_rpscores_filedir \
+        --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv \
+        --trait ${TRAITRR} \
+        --module_path ${MODULEFILEDIR}/\${network}.txt \
+        --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries/${TRAITRR}/ \
+        --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw/ \
+        --network \$network \
+        --threshold \$threshold \
+        --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        fi
+            JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
+    else
+        while IFS=$'\t' read -r threshold network; do
+            echo "Threshold $threshold, Network: $network"
+            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
+                "python3 ./scripts/phase2/dc_generate_rp_statistics.py \
+                    --gene_set_path $genes_rpscores_filedir \
+                    --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv \
+                    --trait ${TRAITRR} \
+                    --module_path ${MODULEFILEDIR}/${network}.txt \
+                    --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries/${TRAITRR}/ \
+                    --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw/ \
+                    --network $network \
+                    --threshold $threshold \
+                    --num_permutations $NUM_PERMUTATIONS"
+        done < $tmpfile
+   fi
+   #rm -rf $tmpfile
+}
 
 
 #########################
@@ -717,9 +832,9 @@ else
 
         print_default_thresholding_message
 
-        phase2_step1_default
+        #phase2_step1_default
 
-        #phase2_step2_default
+        phase2_step2_default
 
         #phase2_step3_default
 
