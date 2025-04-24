@@ -320,6 +320,7 @@ export PVALCOLNAME
 export BONFERRONI_ALPHA
 export RESULTS_PATH
 export RESULTS_PATH_OR
+export RESULTS_PATH_RR
 export FDR_THRESHOLD
 export PERCENTILE_THRESHOLD
 export NXF_CONFIG
@@ -550,32 +551,32 @@ phase2_step0() {
     cut -d ',' -f 1-8 "${RESULTS_PATH_RR}/master_summary_filtered.csv" > "${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv"
 }
 
+# generates tab-delimited file with all pairs
+# of module networks and traits for array job
+generate_network_trait_combinations() {
+    local networks_dir="$1"
+    local study_dir="$2"
+    local output_file="$3"
+
+    # clear output file
+    > "$output_file"
+
+    for network_file in "$networks_dir"/*.txt; do
+        network_name=$(basename "$network_file" .txt)
+        for trait in "$study_dir"/*/; do
+            trait_name=$(basename "$trait")
+            echo -e "${network_name}\t${trait_name}" >> "$output_file"
+        done
+    done
+}
+
 phase2_step1_default() {
     ## (1) generate statistics for original run
     echo "# STEP 2.1: generating statistics for original run"
     if [ "$SINGULARITY" = true ]; then
 
-        # generates tab-delimited file with all pairs
-        # of module networks and traits for array job
-        generate_combinations() {
-            local networks_dir="$1"
-            local study_dir="$2"
-            local output_file="$3"
-
-            # clear output file
-            > "$output_file"
-
-            for network_file in "$networks_dir"/*.txt; do
-                network_name=$(basename "$network_file" .txt)
-                for trait in "$study_dir"/*/; do
-                    trait_name=$(basename "$trait")
-                    echo -e "${network_name}\t${trait_name}" >> "$output_file"
-                done
-            done
-        }
-
         tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        generate_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+        generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
         NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
 
         JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
@@ -660,8 +661,7 @@ phase2_step2_default() {
         NUM_PAIRS=$( wc -l < $tmpfile )
         if [ "$CONDA" = true ]; then
             echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
-            #JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
-            JOB_STAGE2_STEP2_DEFAULT=$(sbatch <<EOT
+            JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
 #!/bin/bash
 #SBATCH -J phase2_step2_default
 #SBATCH --array=1-$NUM_PAIRS
@@ -734,6 +734,56 @@ EOT
    #rm -rf $tmpfile
 }
 
+phase2_step3_default() {
+
+    # (3) summarize statistics
+    echo "# STEP 2.3: summarizing statistics"
+    if [ "$SINGULARITY" = true ]; then
+
+        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+        generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+        NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
+        JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step3_default
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step3_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+NETWORK="\${NETWORK%.*}" # remove extension
+echo "Network: \$NETWORK"
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_summary_statistics_rp.py \
+        --trait \$TRAIT \
+        --input_path ${RESULTS_PATH} \
+        --or_id ${STUDY} \
+        --rr_id ${STUDY_RANDOM} \
+        --input_file_rr_id ${STUDY_RANDOM} \
+        --network \$NETWORK \
+        --output_path ${RESULTS_PATH_OR}/summary/
+EOT
+)
+        #rm $tmpfile
+        JOB_STAGE2_STEP3_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP3_DEFAULT" | awk '{print $4}')
+    else
+        for network in `ls ${MODULEFILEDIR}/`;
+        do
+            echo "Network: $network"
+            network="${network%.*}" # remove extension
+            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
+                "python3 ./scripts/phase2/dc_summary_statistics_rp.py \
+                    --trait $TRAIT \
+                    --input_path $OUTPUT_DIR \
+                    --or_id $TRAIT \
+                    --rr_id ${TRAITRR} \
+                    --input_file_rr_id ${TRAITRR} \
+                    --network $network \
+                    --output_path ${OUTPUT_DIR}/${TRAIT}/summary/"
+        done
+    fi
+}
 
 #########################
 ### UTILITY FUNCTIONS ###
@@ -832,11 +882,11 @@ else
 
         print_default_thresholding_message
 
-        #phase2_step1_default
+        phase2_step1_default
 
         phase2_step2_default
 
-        #phase2_step3_default
+        phase2_step3_default
 
         #phase2_step4_default
 
