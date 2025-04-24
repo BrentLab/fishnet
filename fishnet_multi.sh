@@ -785,6 +785,58 @@ EOT
     fi
 }
 
+phase2_step4_default() {
+
+    # (4) identify MEA passing genes
+    echo "# STEP 2.4: identify MEA-passing genes"
+
+    if [ "$SINGULARITY" = true ]; then
+
+        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+        generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+        NUM_ARRAY_JOBS=$( wc -l < $tmpfile )
+
+        JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step4_default
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step4_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
+        --trait \$TRAIT \
+        --geneset_input \$PVALFILEPATH \
+        --FDR_threshold $FDR_THRESHOLD \
+        --percentile_threshold $PERCENTILE_THRESHOLD \
+        --network \$NETWORK \
+        --input_path ${RESULTS_PATH_OR}
+EOT
+)
+        #rm $tmpfile
+        JOB_STAGE2_STEP4_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP4_DEFAULT" | awk '{print $4}')
+    else
+        for network in `ls ${MODULEFILEDIR}/`;
+        do
+            echo "Network: $network"
+            network="${network%.*}" # remove extension
+            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
+                "python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
+                    --trait $TRAIT \
+                    --geneset_input $PVALFILEDIR\
+                    --FDR_threshold $FDR_THRESHOLD \
+                    --percentile_threshold $PERCENTILE_THRESHOLD \
+                    --network $network \
+                    --input_path ${OUTPUT_DIR}/${TRAIT}"
+        done
+    fi
+}
+
+
 #########################
 ### UTILITY FUNCTIONS ###
 #########################
@@ -888,9 +940,9 @@ else
 
         phase2_step3_default
 
-        #phase2_step4_default
+        phase2_step4_default
 
-        #print_phase_completion_message 2 $JOB_STAGE2_STEP4_DEFAULT_ID
+        print_phase_completion_message 2 $JOB_STAGE2_STEP4_DEFAULT_ID
 
     else
         ##############################
