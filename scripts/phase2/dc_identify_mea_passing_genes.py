@@ -37,7 +37,7 @@ def identify_mea_passing_genes(trait, geneset_input, FDR_threshold, percentile_t
     start = 0.01
     end = float(FDR_threshold)
     step = 0.01
-    fdr_thresholds = [0.05]
+    fdr_thresholds = [FDR_threshold]
     #print(fdr_thresholds)
 
     for threshold in thresholds: 
