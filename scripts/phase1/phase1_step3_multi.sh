@@ -12,7 +12,7 @@ NUMTESTS=$(( $(wc -l < "$PVALFILEPATHRR") - 1 ))
 
 nextflow run ./scripts/phase1/nextflow/main.nf \
     --trait $STUDY_RANDOM \
-    --moduleFileDir $MODULEFILEPATH \
+    --moduleFileDir $MODULE_FILE_PATH \
     --numTests $NUMTESTS \
     --pipeline $STUDY_RANDOM \
     --pvalFileName $PVALFILEPATHRR \
