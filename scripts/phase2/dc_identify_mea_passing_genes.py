@@ -6,7 +6,7 @@ import math
 import scipy.stats as stats
 
 
-def identify_mea_passing_genes(trait, geneset_input, FDR_threshold, percentile_threshold, network, input_path ):
+def identify_mea_passing_genes(trait, geneset_input, FDR_threshold, percentile_threshold, network, input_path, num_permutations ):
     trait = "0-" + trait
     #print(trait)
     #print(geneset_input)
@@ -27,7 +27,7 @@ def identify_mea_passing_genes(trait, geneset_input, FDR_threshold, percentile_t
     
     #read summary data
 
-    summary_filepath = os.path.join(input_path, "summary", f"{trait}_{network}_summary.csv")
+    summary_filepath = os.path.join(input_path, "summary", f"{trait}_{network}_summary_{num_permutations}_permutations.csv")
     if  not os.path.exists(summary_filepath):
         return
 
@@ -37,7 +37,7 @@ def identify_mea_passing_genes(trait, geneset_input, FDR_threshold, percentile_t
     start = 0.01
     end = float(FDR_threshold)
     step = 0.01
-    fdr_thresholds = [FDR_threshold]
+    fdr_thresholds = [float(FDR_threshold)]
     #print(fdr_thresholds)
 
     for threshold in thresholds: 
@@ -70,7 +70,7 @@ def identify_mea_passing_genes(trait, geneset_input, FDR_threshold, percentile_t
             }
             #print(new_row)
             fishnet_df = pd.concat([fishnet_df, pd.DataFrame([new_row])], ignore_index=True)
-            fishnet_df.to_csv(os.path.join(input_path,"summary",f"{network}_{trait}_fishnet_genes_{fdr}.csv"), index = None)
+            fishnet_df.to_csv(os.path.join(input_path,"summary",f"{network}_{trait}_fishnet_genes_{num_permutations}_permutations_{fdr}.csv"), index = None)
 
 
 if __name__ == "__main__":
@@ -82,8 +82,9 @@ if __name__ == "__main__":
     parser.add_argument('--percentile_threshold', '-percentile_threshold')
     parser.add_argument('--network', '-network')
     parser.add_argument('--input_path', '-input_path')
+    parser.add_argument("--num_permutations")
     
     args = parser.parse_args()
-    identify_mea_passing_genes(trait = args.trait, geneset_input = args.geneset_input, FDR_threshold = args.FDR_threshold, percentile_threshold = args.percentile_threshold, network = args.network, input_path = args.input_path)
+    identify_mea_passing_genes(trait = args.trait, geneset_input = args.geneset_input, FDR_threshold = args.FDR_threshold, percentile_threshold = args.percentile_threshold, network = args.network, input_path = args.input_path, num_permutations = args.num_permutations)
 
 

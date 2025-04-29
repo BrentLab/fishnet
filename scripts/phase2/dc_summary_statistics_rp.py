@@ -6,7 +6,7 @@ import math
 import scipy.stats as stats
 
 
-def summary_statistics_rp(trait, input_path, or_id, input_file_rr_id, rr_id, network, output_path ):
+def summary_statistics_rp(trait, input_path, or_id, input_file_rr_id, rr_id, network, output_path, num_permutations):
     #load original and rp_all_output dataframes
     trait = "0-" + trait
     original_run_summary_filepath = os.path.join(input_path,or_id,"results","raw",f"{network}_{trait}_{network}_or_summary.csv")
@@ -22,7 +22,7 @@ def summary_statistics_rp(trait, input_path, or_id, input_file_rr_id, rr_id, net
         # rank = (rank // 5) * 5 
 
         rank = int(rank)
-        rp_file = os.path.join(input_path, rr_id, "results/raw", f"{input_file_rr_id}_{rank}_{network}_rp_mea_passing_across_permutations.csv")
+        rp_file = os.path.join(input_path, rr_id, "results/raw", f"{input_file_rr_id}_{rank}_{network}_rp_mea_passing_across_{num_permutations}_permutations.csv")
         if os.path.exists(rp_file):
             rp_all_output_df = pd.read_csv(rp_file)
         else:
@@ -73,7 +73,7 @@ def summary_statistics_rp(trait, input_path, or_id, input_file_rr_id, rr_id, net
 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
-    summary_df.to_csv(os.path.join(output_path,f"{trait}_{network}_summary.csv"), index = None)
+    summary_df.to_csv(os.path.join(output_path,f"{trait}_{network}_summary_{num_permutations}_permutations.csv"), index = None)
 
 if __name__ == "__main__":
     from argparse import ArgumentParser   
@@ -85,8 +85,9 @@ if __name__ == "__main__":
     parser.add_argument('--rr_id', '-rr_id')
     parser.add_argument('--network', '-network')
     parser.add_argument('--output_path', '-output_path')
+    parser.add_argument("--num_permutations")
     
     args = parser.parse_args()
-    summary_statistics_rp(trait = args.trait, input_path = args.input_path, or_id = args.or_id, input_file_rr_id = args.input_file_rr_id, rr_id = args.rr_id, network = args.network, output_path = args.output_path)
+    summary_statistics_rp(trait = args.trait, input_path = args.input_path, or_id = args.or_id, input_file_rr_id = args.input_file_rr_id, rr_id = args.rr_id, network = args.network, output_path = args.output_path, num_permutations = args.num_permutations)
 
 

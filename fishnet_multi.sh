@@ -410,7 +410,7 @@ EOT
 
 phase1_step1() {
 
-    # (4.1) nextflow (original)
+    # (1) nextflow (original)
     echo "# STEP 1.1: executing Nextflow MEA pipeline on original run"
 
     # MULTI-TRAIT: generate temporary SBATCH array job file
@@ -438,12 +438,13 @@ phase1_step1() {
 
 phase1_step2() {
 
-    # (4.2) compile results (original)
+    # (2) compile results (original)
+    echo "# STEP 1.2: compiling permutation results"
     SUMMARIES_PATH_ORIGINAL="${RESULTS_PATH_OR}/masterSummaries/summaries/"
     if [ "$CONDA" = true ]; then
         JOB_STAGE1_STEP2_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase1_step2_original
+#SBATCH -J phase1_step2_original_${STUDY}
 #SBATCH -o ./logs/phase1_step2_original_%J.out
 source activate $CONDA_ENV
 python3 ./scripts/phase1/compile_results.py \
@@ -481,9 +482,7 @@ phase1_step3() {
 
     # (3) nextflow random permutation run
     echo "# STEP 1.3: executing Nextflow MEA pipeline on random permutations"
-    echo "executing Nextflow MEA pipeline on random permutations"
     if [ "$SINGULARITY" = true ]; then
-        #JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP2_ID" ./scripts/phase1/phase1_step3_multi.sh $(pwd))
         JOB_STAGE1_STEP3=$(sbatch ./scripts/phase1/phase1_step3_multi.sh $(pwd))
         JOB_STAGE1_STEP3_ID=$(echo "$JOB_STAGE1_STEP3" | awk '{print $4}')
     else
@@ -493,7 +492,8 @@ phase1_step3() {
 
 phase1_step4() {
 
-    # (4.2)
+    # (4)
+    echo "# STEP 1.4: compiling permutation results"
     SUMMARIES_PATH_PERMUTATION="${RESULTS_PATH_RR}/masterSummaries/summaries/"
     # dynamically set memory allocation based on number of modules and number of permutations
     # currently: 2 MB * N(modules) * N(permutations)
@@ -501,7 +501,7 @@ phase1_step4() {
     if [ "$CONDA" = true ]; then
         JOB_STAGE1_STEP4_PERMUTATION=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP3_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase1_step4_permutation
+#SBATCH -J phase1_step4_permutation_${STUDY_RANDOM}
 #SBATCH --mem ${MEM_ALLOCATION}M
 #SBATCH -o ./logs/phase1_step4_permutation_%J.out
 source activate $CONDA_ENV
@@ -573,15 +573,17 @@ generate_network_trait_combinations() {
 phase2_step1_default() {
     ## (1) generate statistics for original run
     echo "# STEP 2.1: generating statistics for original run"
+
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+    NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
+
     if [ "$SINGULARITY" = true ]; then
-
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
-        NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
-
-        JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step1_default
+#SBATCH -J phase2_step1_default_${STUDY}
 #SBATCH --mem-per-cpu=4G
 #SBATCH --array=1-$NUM_ARRAY_JOBS
 #SBATCH -o ./logs/phase2_step1_default_%A_%a.out
@@ -589,6 +591,33 @@ NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
 TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
 PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
 echo "Network: \$NETWORK"
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_generate_or_statistics.py \
+    --gene_set_path \$PVALFILEPATH \
+    --master_summary_path ${RESULTS_PATH_OR}/master_summary_filtered_parsed.csv \
+    --trait \$TRAIT  \
+    --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+    --go_path ${RESULTS_PATH_OR}/GO_summaries/\${TRAIT}/ \
+    --study $STUDY \
+    --output_path ${RESULTS_PATH_OR}/results/raw/ \
+    --network \$NETWORK
+EOT
+)
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step1_default_${STUDY}
+#SBATCH --mem-per-cpu=4G
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH -o ./logs/phase2_step1_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
     python3 ./scripts/phase2/dc_generate_or_statistics.py \
         --gene_set_path \$PVALFILEPATH \
@@ -601,6 +630,7 @@ singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
         --network \$NETWORK
 EOT
 )
+        fi
         #rm $tmpfile
         JOB_STAGE2_STEP1_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP1_DEFAULT" | awk '{print $4}')
     else
@@ -663,7 +693,7 @@ phase2_step2_default() {
             echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
             JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step2_default
+#SBATCH -J phase2_step2_default_${STUDY_RANDOM}
 #SBATCH --array=1-$NUM_PAIRS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
@@ -691,30 +721,31 @@ EOT
             echo "RUNNING WITH SINGULARITY"
             JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step2_default
-#SBATCH --array=1-$num_pairs
+#SBATCH -J phase2_step2_default_${STUDY_RANDOM}
+#SBATCH --array=1-$NUM_PAIRS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
 #SBATCH -o ./logs/phase2_step2_default_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
-threshold=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
-echo \$network
-echo \$threshold
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
+THRESHOLD=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
+echo \$NETWORK
+echo \$THRESHOLD
+
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
     python3 ./scripts/phase2/dc_generate_rp_statistics.py \
-        --gene_set_path $genes_rpscores_filedir \
-        --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv \
-        --trait ${TRAITRR} \
-        --module_path ${MODULEFILEDIR}/\${network}.txt \
-        --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries/${TRAITRR}/ \
-        --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw/ \
-        --network \$network \
-        --threshold \$threshold \
+        --gene_set_path $GENES_RPSCORES_FILEDIR \
+        --master_summary_path ${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv \
+        --trait ${STUDY_RANDOM} \
+        --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+        --go_path ${RESULTS_PATH_RR}/GO_summaries/${STUDY_RANDOM}/ \
+        --output_path ${RESULTS_PATH_RR}/results/raw/ \
+        --network \$NETWORK \
+        --threshold \$THRESHOLD \
         --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
         fi
-            JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
+        JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
     else
         while IFS=$'\t' read -r threshold network; do
             echo "Threshold $threshold, Network: $network"
@@ -738,14 +769,17 @@ phase2_step3_default() {
 
     # (3) summarize statistics
     echo "# STEP 2.3: summarizing statistics"
-    if [ "$SINGULARITY" = true ]; then
 
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
-        NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+    NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
+
+    if [ "$SINGULARITY" = true ]; then
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step3_default
+#SBATCH -J phase2_step3_default_${STUDY}
 #SBATCH --array=1-$NUM_ARRAY_JOBS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
@@ -754,6 +788,34 @@ NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
 TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
 NETWORK="\${NETWORK%.*}" # remove extension
 echo "Network: \$NETWORK"
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_summary_statistics_rp.py \
+    --trait \$TRAIT \
+    --input_path ${RESULTS_PATH} \
+    --or_id ${STUDY} \
+    --rr_id ${STUDY_RANDOM} \
+    --input_file_rr_id ${STUDY_RANDOM} \
+    --network \$NETWORK \
+    --output_path ${RESULTS_PATH_OR}/summary/ \
+    --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step3_default_${STUDY}
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step3_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+NETWORK="\${NETWORK%.*}" # remove extension
+echo "Network: \$NETWORK"
+
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
     python3 ./scripts/phase2/dc_summary_statistics_rp.py \
         --trait \$TRAIT \
@@ -762,10 +824,12 @@ singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
         --rr_id ${STUDY_RANDOM} \
         --input_file_rr_id ${STUDY_RANDOM} \
         --network \$NETWORK \
-        --output_path ${RESULTS_PATH_OR}/summary/
+        --output_path ${RESULTS_PATH_OR}/summary/ \
+        --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
-        #rm $tmpfile
+        fi
+        # rm $tmpfile
         JOB_STAGE2_STEP3_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP3_DEFAULT" | awk '{print $4}')
     else
         for network in `ls ${MODULEFILEDIR}/`;
@@ -790,15 +854,16 @@ phase2_step4_default() {
     # (4) identify MEA passing genes
     echo "# STEP 2.4: identify MEA-passing genes"
 
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+    NUM_ARRAY_JOBS=$( wc -l < $tmpfile )
+
     if [ "$SINGULARITY" = true ]; then
-
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
-        NUM_ARRAY_JOBS=$( wc -l < $tmpfile )
-
-        JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step4_default
+#SBATCH -J phase2_step4_default_${STUDY}
 #SBATCH --array=1-$NUM_ARRAY_JOBS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
@@ -807,6 +872,33 @@ NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
 TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
 PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
 echo "Network: \$NETWORK"
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
+    --trait \$TRAIT \
+    --geneset_input \$PVALFILEPATH \
+    --FDR_threshold $FDR_THRESHOLD \
+    --percentile_threshold $PERCENTILE_THRESHOLD \
+    --network \$NETWORK \
+    --input_path ${RESULTS_PATH_OR} \
+    --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step4_default_${STUDY}
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step4_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
     python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
         --trait \$TRAIT \
@@ -814,9 +906,11 @@ singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
         --FDR_threshold $FDR_THRESHOLD \
         --percentile_threshold $PERCENTILE_THRESHOLD \
         --network \$NETWORK \
-        --input_path ${RESULTS_PATH_OR}
+        --input_path ${RESULTS_PATH_OR} \
+        --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
+        fi
         #rm $tmpfile
         JOB_STAGE2_STEP4_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP4_DEFAULT" | awk '{print $4}')
     else
@@ -913,7 +1007,7 @@ else
 
     print_phase_completion_message 1 $JOB_STAGE1_STEP4_PERMUTATION_ID
 
-    nextflow_cleanup
+    #nextflow_cleanup
 fi
 
 if [ "$SKIP_STAGE_2" = true ]; then

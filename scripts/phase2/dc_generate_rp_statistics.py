@@ -89,8 +89,8 @@ def generate_rp_statistics(gene_set_path, master_summary_path, trait, module_pat
     #write final df to the output directory
     if not os.path.exists(output_path):
         os.makedirs(output_path, exist_ok=True)
-    individual_stat_df.to_csv(os.path.join(output_path,f"{trait}_{threshold}_{network}_rp_mea_passing_across_permutations.csv"), index = None)
-    final_df.to_csv(os.path.join(output_path,f"{trait}_{threshold}_{network}_rp_summary.csv"), index = None)
+    individual_stat_df.to_csv(os.path.join(output_path,f"{trait}_{threshold}_{network}_rp_mea_passing_across_{num_permutations}_permutations.csv"), index = None)
+    final_df.to_csv(os.path.join(output_path,f"{trait}_{threshold}_{network}_rp_summary_{num_permutations}_permutations.csv"), index = None)
     #print("Completed")
 
 def extract_module_genes_by_index(module_df, index):
