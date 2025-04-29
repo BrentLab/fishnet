@@ -6,9 +6,8 @@ masterSummaries
 results*/
 *.sif
 *.sbatch
-logs/
-test/maleWCRR
-test_*.sh
+logs*
+test*
 singularity_images
 tmp/
 data/
