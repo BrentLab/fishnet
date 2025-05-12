@@ -483,7 +483,7 @@ phase1_step3() {
     # (3) nextflow random permutation run
     echo "# STEP 1.3: executing Nextflow MEA pipeline on random permutations"
     if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP3=$(sbatch ./scripts/phase1/phase1_step3_multi.sh $(pwd))
+        JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" ./scripts/phase1/phase1_step3_multi.sh $(pwd))
         JOB_STAGE1_STEP3_ID=$(echo "$JOB_STAGE1_STEP3" | awk '{print $4}')
     else
         ./scripts/phase1/phase1_step3_multi.sh $(pwd)
