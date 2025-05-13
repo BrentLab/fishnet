@@ -3,7 +3,7 @@
 #SBATCH -J fishnet_phase1_step1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/fishnet_phase1_step1_%J.out
+#SBATCH -o ./logs/fishnet_phase1_step1_%A_%a.out
 
 MASTER_DIR=$1
 ARRAYJOB_FILE=$2

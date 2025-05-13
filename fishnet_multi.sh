@@ -401,6 +401,11 @@ EOT
         fi
     fi
 
+    # TODO: pull nextflow singuarity images prior to run (TEMPORARY BUG FIX)
+    echo "pulling singularity images for nextflow (temp bug fix)"
+    singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da-b033d6a4ea3a42a6f5121a82b262800f1219b382-0.img" https://depot.galaxyproject.org/singularity/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0
+    singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" https://depot.galaxyproject.org/singularity/pandas:1.1.5
+
     export PULL_PYTHON_CONTAINER
     export PULL_R_CONTAINER
     export JOB_PULL_SINGULARITY_PYTHON_ID
