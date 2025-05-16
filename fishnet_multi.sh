@@ -403,9 +403,15 @@ EOT
 
     # TODO: pull nextflow singuarity images prior to run (TEMPORARY BUG FIX)
     echo "pulling singularity images for nextflow (temp bug fix)"
-    singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da-b033d6a4ea3a42a6f5121a82b262800f1219b382-0.img" https://depot.galaxyproject.org/singularity/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0
-    singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" https://depot.galaxyproject.org/singularity/pandas:1.1.5
-    singularity pull "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1" docker://jungwooseok/mea_pascal:1.1
+    if [ ! -f "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da-b033d6a4ea3a42a6f5121a82b262800f1219b382-0.img" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da-b033d6a4ea3a42a6f5121a82b262800f1219b382-0.img" https://depot.galaxyproject.org/singularity/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0
+    fi
+    if [ ! -f "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" https://depot.galaxyproject.org/singularity/pandas:1.1.5
+    fi
+    if [ ! -f "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1" docker://jungwooseok/mea_pascal:1.1
+    fi
 
     export PULL_PYTHON_CONTAINER
     export PULL_R_CONTAINER
