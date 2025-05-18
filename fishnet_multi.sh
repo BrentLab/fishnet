@@ -409,8 +409,8 @@ EOT
     if [ ! -f "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" ]; then
         singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" https://depot.galaxyproject.org/singularity/pandas:1.1.5
     fi
-    if [ ! -f "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1" ]; then
-        singularity pull "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1" docker://jungwooseok/mea_pascal:1.1
+    if [ ! -f "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1.img" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1.img" docker://jungwooseok/mea_pascal:1.1
     fi
 
     export PULL_PYTHON_CONTAINER
