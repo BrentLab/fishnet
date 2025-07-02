@@ -42,7 +42,7 @@ Usage: fishnet.sh [options]
         Default: 0.05
     --percentile-threshold <float>
         Specify a custom percentile threshold cutoff
-        Default: 0.99
+        Default: 99
     --num-permutations <integer>
         Configures the number of permutations
         Default: 10
@@ -83,7 +83,7 @@ NUM_MODULE_FILES=0
 
 # parameters
 FDR_THRESHOLD=0.05
-PERCENTILE_THRESHOLD=0.99
+PERCENTILE_THRESHOLD=99
 NUM_PERMUTATIONS=10
 TRAITPATH="NONE"
 

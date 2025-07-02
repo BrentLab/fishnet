@@ -39,7 +39,7 @@ Usage: fishnet.sh [options]
         Default: 0.05
     --percentile-threshold <float>
         Specify a custom percentile threshold cutoff
-        Default: 0.99
+        Default: 99
     --modules <path/to/modules/directory/>
         Path to directory containing network modules.
         Network module files must be tab-delimited .txt files
@@ -81,7 +81,7 @@ PVALCOLNAME="p_vals"
 BONFERRONI_ALPHA=0.05 # for phase 1 nextflow scripts
 
 FDR_THRESHOLD=0.05
-PERCENTILE_THRESHOLD=0.99
+PERCENTILE_THRESHOLD=99
 NUM_PERMUTATIONS=10
 STUDY_PATH="NONE"
 STUDY_RANDOM_PATH="NONE"
