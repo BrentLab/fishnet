@@ -14,8 +14,8 @@ export TMPDIR="/scratch/mblab/acharyas/tmp"
 export NXF_TEMP="/scratch/mblab/acharyas/tmp"
 study="./data/pvals/llfsTWASOR/"
 study_random="./data/pvals/llfsTWASRR/"
-modules="./data/modules/networks/"
-num_permutations=100
+modules="./data/modules/networks_targets/"
+num_permutations=200
 
 ./fishnet_multi.sh \
     --study $study \
