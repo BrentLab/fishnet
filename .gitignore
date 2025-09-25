@@ -7,7 +7,7 @@ results*/
 *.sif
 *.sbatch
 logs*
-test*
+test*.sh
 singularity_images
 tmp/
 data/
