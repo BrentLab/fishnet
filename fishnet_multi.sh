@@ -31,7 +31,7 @@ Usage: fishnet.sh [options]
     --conda
         Configures (phase2_step2_default) to run using a conda environment in SLURM (much faster than singularity)
         Default: false (runs phase2_step2_default using singularity)
-    --conda-env <conda_environment_name>
+    --conda_env <conda_environment_name>
         Specify a conda environment to use/create
         Default: fishnet (creates a conda environment named fishnet)
     --FDR-threshold <float>
@@ -49,12 +49,12 @@ Usage: fishnet.sh [options]
         Runs FISHNET for all traits in this directory.
         Summary statistics files must be CSV files with colnames "Genes" and "p_vals".
         Filename must not include any '_', '-', or '.' characters.
-        (e.g. --study data/pvals/maleWC/)
+        (e.g. --study data/pvals/exampleOR/)
     --study-random <path/to/random/permutation/study/directory>
         Path to the directory containing uniformly distributed p-values for random permutations.
-        (e.g. --study data/pvals/maleWCRR/)
+        (e.g. --study data/pvals/exampleRR/)
     --num-permutations <integer>
-        Configures the number of permutations (only relevant with --random)
+        Configures the number of permutations
         Default: 10
 EOF
 }
@@ -249,8 +249,8 @@ echo " - nextflow config: $NXF_CONFIG"
 
 ### set test parameters ###
 if [ "$TEST_MODE" = true ]; then
-    STUDY_PATH="./data/pvals/dreamGWASORKBtest"
-    STUDY_RANDOM_PATH="./data/pvals/dreamGWASRRKBtest"
+    STUDY_PATH="./data/pvals/exampleOR"
+    STUDY_RANDOM_PATH="./data/pvals/exampleRR"
     MODULE_FILE_PATH="./data/modules/ker_based/"
 else
     # check for required input parameters
@@ -327,10 +327,8 @@ export NXF_CONFIG
 
 ### list of containers ###
 # contains all python dependencies for fishnet
-#   TODO: create single container with all python dependencies (include statsmodels)
-#   TODO: add to biocontainers 
-export container_python="docker://jungwooseok/dc_rp_genes:1.0"
-export container_R="docker://jungwooseok/r-webgestaltr:1.0"
+export container_python="docker://community.wave.seqera.io/library/python_scipy_pip_numpy_pruned:14820d092196f57e"
+export container_R="docker://community.wave.seqera.io/library/r-optparse_r-stringr_r-webgestaltr:8176ac8478d07225"
 export CONDA_ENV
 
 #########################
@@ -357,8 +355,8 @@ pull_docker_image() {
 
         container_python_docker=$container_python
         container_R_docker=$container_R
-        export container_python="$(pwd)/singularity_images/dc_rp_genes.sif"
-        export container_R="$(pwd)/singularity_images/r_webgestaltr.sif"
+        export container_python="$(pwd)/singularity_images/fishnet_container_python.sif"
+        export container_R="$(pwd)/singularity_images/fishnet_container_R.sif"
 
 
         # pull python container if not exist

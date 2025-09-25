@@ -23,4 +23,5 @@ nextflow run ./scripts/phase1/nextflow/main.nf \
     --numRP $NUM_PERMUTATIONS \
     --GO_summaries_path "GO_summaries" \
     --masterSummaries_path "masterSummaries" \
-    -c $NXF_CONFIG
+    -c $NXF_CONFIG \
+    -resume
