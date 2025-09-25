@@ -106,67 +106,53 @@
   },"15": {
     "doc": "FAQ",
     "title": "Frequently Asked Questions",
-    "content": " ",
+    "content": ". The code has an option for providing a conda environment. Where can I find the required packages? . We provide a YAML file in the FISHNET GitHub. Can you prepare a single notebook containing all scripts and data that one can open and run? . Unfortunately, FISHNET is currently written as a mix of several languages, so this makes preparing a “single notebook” not an easy task. ",
     "url": "/faq#frequently-asked-questions",
     
     "relUrl": "/faq#frequently-asked-questions"
   },"16": {
-    "doc": "FAQ",
-    "title": "Sample question 1",
-    "content": "Sample answer 1 . ",
-    "url": "/faq#sample-question-1",
-    
-    "relUrl": "/faq#sample-question-1"
-  },"17": {
-    "doc": "FAQ",
-    "title": "Sample question 2",
-    "content": "Sample answer 2 . ",
-    "url": "/faq#sample-question-2",
-    
-    "relUrl": "/faq#sample-question-2"
-  },"18": {
     "doc": "FAQ",
     "title": "FAQ",
     "content": " ",
     "url": "/faq",
     
     "relUrl": "/faq"
-  },"19": {
+  },"17": {
     "doc": "Getting Started",
     "title": "Getting Started",
     "content": "Here we guide you to get started on using FISHNET for your next project. Citation . If you use FISHNET in published research, please cite the following paper: . Acharya et al., FISHNET: A Network-based Tool for Analyzing Gene-level P-values to Identify Significant Genes Missed by Standard Methods, doi:10.1101/2025.01.29.635546. ",
     "url": "/getting-started",
     
     "relUrl": "/getting-started"
-  },"20": {
+  },"18": {
     "doc": "Getting Started",
     "title": "Table of contents",
     "content": ". | Installation | Quick start . | Execution | Output files | . | . ",
     "url": "/getting-started#table-of-contents",
     
     "relUrl": "/getting-started#table-of-contents"
-  },"21": {
+  },"19": {
     "doc": "Getting Started",
     "title": "Installation",
     "content": "Clone the FISHNET GitHub repository and cd into the local repository: . $ git clone https://github.com/BrentLab/fishnet.git $ cd fishnet/ . Run FISHNET on test data to verify successful installation: . $ ./fishnet.sh --test . If your platform does not support Docker (e.g. in a HPC environment), use the --singularity flag: . $ ./fishnet.sh --test --singularity . ",
     "url": "/getting-started#installation",
     
     "relUrl": "/getting-started#installation"
-  },"22": {
+  },"20": {
     "doc": "Getting Started",
     "title": "Quick start",
     "content": "Execution . Here we show the most basic steps for a FISHNET analysis. There are a variety of configuration options which are detailed in Configuration. This code chunk assumes that you have an input summary statistics file (comma-separated with columns named “Genes” and “p_vals”) and a set of tab-delimited network module files. example summary statistics file (data/pvals/exampleOR/maleWC/0-maleWC.csv) Genes,p_vals BRD3OS,0.12219547800000001 PTCH2,0.8389969 ASNS,0.274650263 TTLL9,0.111914007 AKR1D1,0.784900795 LINC00839,0.901963325 . example module file format (data/modules/ker_based/ppi2.txt) 0 1.0 SPEF2 PDE4B SERTAD3 1 1.0 CCL3L3 CCL15 CCL4L1 CCL3 CCL16 CCL5 CCL7 CCL28 CCL4L2 CCL14 CCL27 CXCL9 CCL8 CCL23 CXCL13 CCL26 CCL13 CCL24 CCL11 CCL3L1 CCL2 2 1.0 ZHX1 COPS6 PLGRKT SCO2 ABCB8 3 1.0 PLXNC1 PHACTR2 HCN3 NEK8 SEMA7A GPR63 GPR45 GPX1 TULP1 NCKAP5 BRPF3 FYN GCFC2 LTBP2 LDAF1 RHOU PAX7 SCARF2 4 1.0 C7 C8B NKX1-2 C8G AKR1C1 C6 MMEL1 C8A RFFL C5 ZBTB1 5 1.0 PIK3AP1 SLC23A1 ASAP1 CNTNAP1 SNX17 TGOLN2 CD2AP ASAP2 ACAP1 F2RL2 . To execute FISHNET, specify the --study argument with a directory path containing all trait subdirectories with summary statistics files and the --modules argument with the directory containing input network module files. $ ./fishnet.sh \\ --study /path/to/input/study/directory/ \\ --modules /path/to/modules/directory/ . This will run both stages of FISHNET with 10 permutations using the default thresholding method (by default). Output files . The output files are saved in the results/ directory (by default) relative to the current working directory where you launch fishnet.sh. Here, we guide you through the expected output directory structure. | The results directory will contain a &lt;study&gt; subdirectory containing output files for the input study traits and a &lt;study&gt;RR subdirectory containing similar output files for the permutations. results/ ├── &lt;study&gt;/ └── &lt;study&gt;RR/ . | Each results/&lt;study&gt;/ directory, will look like so: results/ └── &lt;study&gt;/ ├── GO_summaries/ ├── masterSummaries/ ├── master_summary.csv ├── master_summary_&lt;study&gt;.csv ├── master_summary_filtered.csv ├── master_summary_filtered_parsed.csv ├── pascalInput/ ├── pascalOutput/ ├── results/ └── summary/ . The GO_summaries/ directory lists statistics for the GO overrepresentation analysis. The FISHNET genes for the trait and the network the genes originate from can be found in summary/&lt;network&gt;_&lt;trait&gt;_fishnet_genes_&lt;FDR-threshold&gt;.csv . | . Read through the Example to interpret the output files. ",
     "url": "/getting-started#quick-start",
     
     "relUrl": "/getting-started#quick-start"
-  },"23": {
+  },"21": {
     "doc": "Home",
     "title": "FISHNET (Finding Significant Hits in NETworks)",
     "content": "FISHNET is a network-based tool that analyzes gene-level p-values to identify significant genes missed by standard methods, using prior biological knowledge to detect those that fail the genome-wide significance threshold but replicate nonetheless. FISHNET can use gene-level summary statistics from GWAS, TWAS with measured or predicted gene expression levels, proteome-wide association studies, RNA-Seq experiments, functional genetics screens, or any other source. It uses gene-gene interactions in network modules from co-expression networks, protein-protein interaction (PPI) networks, or other networks, together with gene function annotations from Gene Ontology (GO). FISHNET manuscript is currently available in bioRxiv1. The general workflow of FISHNET is shown in the figure below. (A) The gene-level p-values are input into module significance analysis. Module significance analysis outputs significant modules and their p-values. Gene ontology over- representation analysis identifies biological processes with significant over-representation among genes in each significant module. (B) The workflow illustrates the gene prioritization mechanism used to identify FISHNET genes. | Acharya et al. FISHNET: A Network-based Tool for Analyzing Gene-level P-values to Identify Significant Genes Missed by Standard Methods &#8617; . | . ",
     "url": "/#fishnet-finding-significant-hits-in-networks",
     
     "relUrl": "/#fishnet-finding-significant-hits-in-networks"
-  },"24": {
+  },"22": {
     "doc": "Home",
     "title": "Home",
     "content": " ",
