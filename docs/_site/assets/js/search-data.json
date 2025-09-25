@@ -6,111 +6,167 @@
     
     "relUrl": "/changelog"
   },"1": {
-    "doc": "Configuration",
-    "title": "FISHNET configuration",
-    "content": "FISHNET currently supports platforms with either Singularity or Docker. FISHNET supports HPCs using the SLURM workload manager to submit batch jobs for parallel computing. FISHENT provides a command line interface (CLI) for execution. Simply run ./fishnet.sh with no options or ./fishnet.sh -h to see the list of available top-level options. | Parameters . | Required parameters . | Trait | Network modules | . | Optional parameters . | Permutations | Multiple testing | Percentile threshold | Skipping stages | Thresholding methods | Container platform | Nextflow config file | Test run | . | . | Nextflow configuration | . ",
-    "url": "/configuration#fishnet-configuration",
+    "doc": "CHANGELOG",
+    "title": "All notable user-facing changes to this project are documented in this file.",
+    "content": ". ",
+    "url": "/changelog#all-notable-user-facing-changes-to-this-project-are-documented-in-this-file",
     
-    "relUrl": "/configuration#fishnet-configuration"
+    "relUrl": "/changelog#all-notable-user-facing-changes-to-this-project-are-documented-in-this-file"
   },"2": {
+    "doc": "CHANGELOG",
+    "title": "Release v1.0.2",
+    "content": "Minor update: . | Update docs to include an example (finally) with maleWC. | . ",
+    "url": "/changelog#release-v102",
+    
+    "relUrl": "/changelog#release-v102"
+  },"3": {
+    "doc": "CHANGELOG",
+    "title": "Release v1.0.1",
+    "content": "Major updates: . | Full restructuring of FISHNET pipeline to handle multiple traits. This complete changes the way FISHNET handles input parameters and formats the output files . | Updated docs to reflect changes | . ",
+    "url": "/changelog#release-v101",
+    
+    "relUrl": "/changelog#release-v101"
+  },"4": {
+    "doc": "CHANGELOG",
+    "title": "Release v1.0.0",
+    "content": "Hello world, first release of FISHNET. | Full FISHNET pipeline runs successfully and passes single-trait test. | . ",
+    "url": "/changelog#release-v100",
+    
+    "relUrl": "/changelog#release-v100"
+  },"5": {
+    "doc": "Configuration",
+    "title": "Configuration",
+    "content": "Documentation of parameters and configuration options for FISHNET. FISHNET currently supports platforms with either Singularity or Docker. FISHNET supports HPCs using the SLURM workload manager to submit batch jobs for parallel computing. FISHNET provides a command line interface (CLI) for execution. Simply run ./fishnet.sh with no options or ./fishnet.sh -h to see the list of available top-level options. ",
+    "url": "/configuration",
+    
+    "relUrl": "/configuration"
+  },"6": {
+    "doc": "Configuration",
+    "title": "Table of contents",
+    "content": ". | Parameters . | Required parameters . | Study | Network modules | . | Optional parameters . | Random P-values | Permutations | Multiple testing | Percentile threshold | Skipping stages | Thresholding methods | Test run | . | Environmental parameters . | Container platform | Nextflow config file | Use conda | Specify an existing conda environment | . | . | Nextflow configuration | . ",
+    "url": "/configuration#table-of-contents",
+    
+    "relUrl": "/configuration#table-of-contents"
+  },"7": {
     "doc": "Configuration",
     "title": "Parameters",
-    "content": "Required parameters . Trait . --trait &lt;path/to/input/file.csv&gt; (Required) . Network modules . --modules &lt;/path/to/modules/directory/&gt; (Required) . Optional parameters . Permutations . --num-permutations &lt;integer&gt; . Multiple testing . --FDR-threshold &lt;float&gt; . Percentile threshold . --percentile-threshold &lt;float&gt; . The --percentile-threshold parameter is used to ensure that the number of candidate FISHNET genes obtained using original ranks of genes is higher than or equal to those obtained using random permutation of gene ranks for X % of random permutations. X is the percentile-threshold initially set by the users. Skipping stages . --skip-stage-1 . --skip-stage-2 . Thresholding methods . --thresholding-alternative . Container platform . --singularity . Nextflow config file . The --nxf-config &lt;path/to/nxf.config&gt; option can be used to specify a custom configuration file for running the Nextflow pipelines. If not specified, FISHNET uses the ./conf/fishent_slurm.config when the --singularity option is used and ./conf/fishnet.config otherwise. See Nextflow configuration for details on editing the configuration file. Test run . --test . ",
+    "content": "Required parameters . Study . --study &lt;path/to/study/directory&gt; (Required) . Path to directory containing trait subdirectories with input summary statistics files e.g./fishnet/data/pvals/dreamGWASORKB/ ├── 11D │   └── 0-11D.csv ├── 11R │   └── 0-11R.csv ├── 12D1 │   └── 0-12D1.csv ├── 12D2 │   └── 0-12D2.csv └── 12R └── 0-12R.csv . FISHNET runs for all traits that are in this directory. Summary statistics files must be CSV files with colnames “Genes” and “p_vals”. Filename must not include any ‘_’, ‘-‘, or ‘.’ characters. Network modules . --modules &lt;/path/to/modules/directory/&gt; (Required) . Path to directory containing network module files e.g. data/modules/ker_based/ ├── coex.txt ├── ppi2.txt └── ppi.txt . Optional parameters . Random P-values . --study-random &lt;path/to/random/permutation/study/directory&gt; . Path to the directory containing uniformly distributed p-values for random permutations. e.g./fishnet/data/pvals/dreamGWASRRKB/ └── dreamGWASRRKB.csv . Permutations . --num-permutations &lt;integer&gt; . Configures the number of permutations (default: 10) . Multiple testing . --FDR-threshold &lt;float&gt; . Specify a custom FDR threshold cutoff (default: 0.05) . Percentile threshold . --percentile-threshold &lt;float&gt; . The --percentile-threshold parameter is used to ensure that the number of candidate FISHNET genes obtained using original ranks of genes is higher than or equal to those obtained using random permutation of gene ranks for X % of random permutations. X is the percentile-threshold initially set by the users. Skipping stages . --skip-stage-1 . This skips stage 1 of FISHNET. STAGE 1 runs the module significance analysis and GO overrepresentation analysis for the observed and permuted p-values. --skip-stage-2 . This skips stage 2 of FISHNET. STAGE 2 carries out the iterative thresholding and hypothesis testing for identifying FISHNET genes based on the outputs of STAGE 1. Thresholding methods . --thresholding-alternative . Test run . --test . This runs FISHNET with the default test configurations . Environmental parameters . Container platform . --singularity . Configures containers to run using Singularity (Docker, by default). Nextflow config file . The --nxf-config &lt;path/to/nxf.config&gt; option can be used to specify a custom configuration file for running the Nextflow pipelines. If not specified, FISHNET defaults to ./conf/fishent_slurm.config when the --singularity option is used and ./conf/fishnet.config otherwise. See Nextflow configuration for details on editing the configuration file. Use conda . --conda . This option configures parts of FISHNET to run using a conda environment instead of using a Singularity container (much faster). Note: only works when using --singularity in a SLURM platform. Specify an existing conda environment . --conda_env &lt;conda_environment_name&gt; . Use this option to specify an existing conda environment to use to run processes. Just make sure that the environment satisfies the package dependencies listed in conf/fishnet_conda_environment.yml. After the first time running FISHNET with --conda, it will automatically create a conda environment named fishnet for you. You can then run --conda_env fishnet to load the created environment. ",
     "url": "/configuration#parameters",
     
     "relUrl": "/configuration#parameters"
-  },"3": {
+  },"8": {
     "doc": "Configuration",
     "title": "Nextflow configuration",
     "content": "FISHNET uses Nextflow pipelines for module enrichment analysis. Nextflow enables scalable and reproducible scientific workflows using software containers and can be run on different platforms. However, this requires a little bit of configuration on the user-end to make the best out of your working environment. By default, FISHNET comes with two preset Nextflow configuration files in the conf/ directory: . conf/ ├── fishnet.config └── fishnet_slurm.config . fishnet.config is configured for Nextflow to use Docker for software containers and fishnet_slurm.config is configured for FISHNET to run on a SLURM HPC using Singularity for software containers. Please refer to the Nextflow documentation for detailed explanations of the configuration files. ",
     "url": "/configuration#nextflow-configuration",
     
     "relUrl": "/configuration#nextflow-configuration"
-  },"4": {
-    "doc": "Configuration",
-    "title": "Configuration",
-    "content": " ",
-    "url": "/configuration",
-    
-    "relUrl": "/configuration"
-  },"5": {
+  },"9": {
     "doc": "Example",
-    "title": "Example FISHENT run",
-    "content": "Dataset: maleWC summary statistics . ",
-    "url": "/example#example-fishent-run",
+    "title": "Example FISHNET run",
+    "content": "Small example using maleWC (waist circumference) summary statistics. This example assumes that you have already installed FISHNET (instructions at Getting Started) . ",
+    "url": "/example#example-fishnet-run",
     
-    "relUrl": "/example#example-fishent-run"
-  },"6": {
+    "relUrl": "/example#example-fishnet-run"
+  },"10": {
+    "doc": "Example",
+    "title": "Table of contents",
+    "content": ". | SLURM HPC example | Non-HPC example | Output | . If you are on a SLURM HPC that supports singularity, follow SLURM HPC example. Otherwise, follow Non-HPC example to run this example using Docker. ",
+    "url": "/example#table-of-contents",
+    
+    "relUrl": "/example#table-of-contents"
+  },"11": {
+    "doc": "Example",
+    "title": "SLURM HPC example",
+    "content": "First, copy the example sbatch script test/example_maleWC.sbatch to the parent FISHNET directory. test/example_maleWC.sbatch #!/bin/bash #SBATCH -J fishnet_example_maleWC #SBATCH --mem=4G #SBATCH -o ./logs/fishnet_example_maleWC_%J.out # load required modules eval $(spack load --sh singularityce@3.8.0) eval $(spack load --sh nextflow@22.10.4) # recommended environmental variables export SINGULARITY_CACHEDIR=\"\" export NXF_CONDA_CACHEDIR=\"\" export TMPDIR=\"\" export NXF_TEMP=\"\" study=\"./data/pvals/exampleOR/\" study_random=\"./data/pvals/exampleRR/\" modules=\"./data/modules/ker_based/\" num_permutations=500 ./fishnet_multi.sh \\ --study $study \\ --study-random $study_random \\ --modules $modules \\ --singularity \\ --conda \\ --conda_env fishnet \\ --num-permutations $num_permutations . The study parameter points to the input study directory. For the example, the input study is exampleOR which contains one maleWC trait subdirectory with the 0-maleWC.csv file with p-values. For the modules parameter, we provide the three networks modules discussed in the paper (STRING functional PPI, InWeb physical PPI, and gene co-expression). pvals ├── exampleOR │ └── maleWC │ └── 0-maleWC.csv └── exampleRR └── exampleRR.csv modules └── ker_based ├── coex.txt ├── ppi2.txt └── ppi.txt . For the sake of efficiency, we are only running 500 permutations for this example. Submit the FISHNET job with sbatch example_maleWC.sbatch and the logfile should keep track of the progress: . Log Configs: - container run-time: SINGULARITY singularity-ce version 3.8.0 conda 4.11.0 - nextflow config: ./conf/fishnet_slurm.config # Found 1 traits &gt; maleWC # FOUND 3 module files Conda environment fishnet found pulling singularity images for nextflow ############### ### PHASE 1 ### ############### # STEP 1.1: executing Nextflow MEA pipeline on original run # STEP 1.2: compiling permutation results # STEP 1.3: executing Nextflow MEA pipeline on random permutations # STEP 1.4: compiling permutation results ######################## ### PHASE 1 COMPLETE ### ######################## ############### ### PHASE 2 ### ############### # STEP 2.0: filtering + parsing master_summary.csv files ########################## ## DEFAULT THRESHOLDING ## ########################## # STEP 2.1: generating statistics for original run RUNNING WITH CONDA ENVIRONMENT (fishnet) # STEP 2.2: generating statistics for permutation runs RUNNING WITH CONDA ENVIRONMENT (fishnet) # STEP 2.3: summarizing statistics RUNNING WITH CONDA ENVIRONMENT (fishnet) # STEP 2.4: identify MEA-passing genes RUNNING WITH CONDA ENVIRONMENT (fishnet) ######################## ### PHASE 2 COMPLETE ### ######################## ### FISHNET COMPLETE ### . ",
+    "url": "/example#slurm-hpc-example",
+    
+    "relUrl": "/example#slurm-hpc-example"
+  },"12": {
+    "doc": "Example",
+    "title": "Non-HPC example",
+    "content": "Note that the non-HPC version runs sequentially and will take substantially longer than the HPC version. Copy the example script test/example_malewC_docker.sh to the FISHNET directory. test/example_maleWC_docker.sh study=\"./data/pvals/exampleOR/\" study_random=\"./data/pvals/exampleRR/\" modules=\"./data/modules/ker_based/\" num_permutations=500 ./fishnet_multi.sh \\ --study $study \\ --study-random $study_random \\ --modules $modules \\ --docker \\ --conda \\ --conda_env fishnet \\ --num-permutations $num_permutations . Run the script with ./example_maleWC_docker.sh. ",
+    "url": "/example#non-hpc-example",
+    
+    "relUrl": "/example#non-hpc-example"
+  },"13": {
+    "doc": "Example",
+    "title": "Output",
+    "content": "Once FISHNET has completed, the results directory should populate with output files for the maleWC trait within the exampleOR study: . Output file structure results ├── exampleOR │ ├── GO_summaries │ ├── masterSummaries │ ├── master_summary.csv │ ├── master_summary_exampleOR.csv │ ├── master_summary_filtered.csv │ ├── master_summary_filtered_parsed.csv │ ├── pascalInput │ ├── pascalOutput │ ├── results │ └── summary └── exampleRR ├── GO_summaries ├── masterSummaries ├── master_summary.csv ├── master_summary_exampleRR.csv ├── master_summary_filtered.csv ├── master_summary_filtered_parsed.csv ├── pascalInput ├── pascalOutput ├── results └── summary . The results we’re primarily interested in will be under results/exampleOR/summary/: . results/exampleOR/summary/ ├── 0-maleWC_coex_summary_500_permutations.csv ├── 0-maleWC_ppi2_summary_500_permutations.csv ├── 0-maleWC_ppi_summary_500_permutations.csv ├── ppi_0-maleWC_fishnet_genes_500_permutations_0.05.csv └── ppi2_0-maleWC_fishnet_genes_500_permutations_0.05.csv . Here, we can see that we have found 2 FISHNET genes for maleWC in the ppi network and 1 FISHNET gene in the ppi2 network: . $ head *fishnet_genes*.csv ==&gt; ppi_0-maleWC_fishnet_genes_500_permutations_0.05.csv &lt;== Threshold,Network,numNominal,Trait,NumFISHNETGenes,FISHNETGenes 190,ppi,860,0-maleWC,2.0,\"['DEFA1', 'DEFA5']\" ==&gt; ppi2_0-maleWC_fishnet_genes_500_permutations_0.05.csv &lt;== Threshold,Network,numNominal,Trait,NumFISHNETGenes,FISHNETGenes 70,ppi2,860,0-maleWC,1.0,['DEFA5'] . From the master summary file, we can locate the modules that contain these FISHNET genes . $ cat master_summary_filtered_parsed.csv study,trait,network,moduleIndex,isModuleSig,modulePval,moduleBonPval,size exampleOR,0-maleWC,ppi,179,True,1.2896084813134806e-06,0.0013154006509397,6 exampleOR,0-maleWC,ppi2,278,True,6.0423189972850345e-05,0.0268278963479455,5 . In the results/GO_summaries directory, we can find which GO biological process terms were enriched in these modules: . ==&gt; GO_summaries/maleWC/GO_summaries_0-maleWC_ppi2/sig_exampleOR_0-maleWC_ppi2_278.csv &lt;== \"geneSet\",\"description\",\"size\",\"overlap\",\"expect\",\"enrichmentRatio\",\"pValue\",\"FDR\",\"overlapId\",\"userId\",\"database\" \"GO:0002385\",\"mucosal immune response\",12,3,0.00620876988746605,483.1875,1.14213107860195e-08,4.64305470340709e-05,\"1669;1670;1671\",\"DEFA6;DEFA4;DEFA5\",\"geneontology_Biological_Process\" \"GO:0002251\",\"organ or tissue specific immune response\",14,3,0.00724356486871039,414.160714285714,1.88934067280044e-08,4.64305470340709e-05,\"1669;1670;1671\",\"DEFA6;DEFA4;DEFA5\",\"geneontology_Biological_Process\" ==&gt; GO_summaries/maleWC/GO_summaries_0-maleWC_ppi/sig_exampleOR_0-maleWC_ppi_179.csv &lt;== \"geneSet\",\"description\",\"size\",\"overlap\",\"expect\",\"enrichmentRatio\",\"pValue\",\"FDR\",\"overlapId\",\"userId\",\"database\" \"GO:0002385\",\"mucosal immune response\",12,5,0.00513347022587269,974,4.44089209850063e-16,2.43938202970639e-12,\"1667;1669;1670;1671;1672\",\"DEFB1;DEFA4;DEFA6;DEFA5;DEFA1\",\"geneontology_Biological_Process\" \"GO:0050832\",\"defense response to fungus\",24,4,0.0102669404517454,389.6,6.82681688957132e-11,4.68746314680191e-08,\"1667;1669;1670;1671\",\"DEFA4;DEFA6;DEFA5;DEFA1\",\"geneontology_Biological_Process\" . ",
+    "url": "/example#output",
+    
+    "relUrl": "/example#output"
+  },"14": {
     "doc": "Example",
     "title": "Example",
     "content": " ",
     "url": "/example",
     
     "relUrl": "/example"
-  },"7": {
+  },"15": {
     "doc": "FAQ",
     "title": "Frequently Asked Questions",
     "content": " ",
     "url": "/faq#frequently-asked-questions",
     
     "relUrl": "/faq#frequently-asked-questions"
-  },"8": {
+  },"16": {
     "doc": "FAQ",
     "title": "Sample question 1",
     "content": "Sample answer 1 . ",
     "url": "/faq#sample-question-1",
     
     "relUrl": "/faq#sample-question-1"
-  },"9": {
+  },"17": {
     "doc": "FAQ",
     "title": "Sample question 2",
     "content": "Sample answer 2 . ",
     "url": "/faq#sample-question-2",
     
     "relUrl": "/faq#sample-question-2"
-  },"10": {
+  },"18": {
     "doc": "FAQ",
     "title": "FAQ",
     "content": " ",
     "url": "/faq",
     
     "relUrl": "/faq"
-  },"11": {
+  },"19": {
     "doc": "Getting Started",
     "title": "Getting Started",
-    "content": "Here we guide you to get started on using FISHNET for your next project. Note: if you use FISHNET in published research, please cite the following paper: . Acharya et al., FISHNET: A Network-based Tool for Analyzing Gene-level P-values to Identify Significant Genes Missed by Standard Methods, doi:10.1101/2025.01.29.635546. ",
+    "content": "Here we guide you to get started on using FISHNET for your next project. Citation . If you use FISHNET in published research, please cite the following paper: . Acharya et al., FISHNET: A Network-based Tool for Analyzing Gene-level P-values to Identify Significant Genes Missed by Standard Methods, doi:10.1101/2025.01.29.635546. ",
     "url": "/getting-started",
     
     "relUrl": "/getting-started"
-  },"12": {
+  },"20": {
     "doc": "Getting Started",
     "title": "Table of contents",
     "content": ". | Installation | Quick start . | Execution | Output files | . | . ",
     "url": "/getting-started#table-of-contents",
     
     "relUrl": "/getting-started#table-of-contents"
-  },"13": {
+  },"21": {
     "doc": "Getting Started",
     "title": "Installation",
-    "content": "Clone the FISHENT GitHub repository and cd into the local repository: . $ git clone https://github.com/BrentLab/fishnet.git $ cd fishnet/ . Run FISHNET on test data to verify successful installation: . $ ./fishnet.sh --test . Note: If your platform does not support Docker (e.g. in a HPC environment), use the --singularity flag: . $ ./fishnet.sh --test --singularity . ",
+    "content": "Clone the FISHNET GitHub repository and cd into the local repository: . $ git clone https://github.com/BrentLab/fishnet.git $ cd fishnet/ . Run FISHNET on test data to verify successful installation: . $ ./fishnet.sh --test . If your platform does not support Docker (e.g. in a HPC environment), use the --singularity flag: . $ ./fishnet.sh --test --singularity . ",
     "url": "/getting-started#installation",
     
     "relUrl": "/getting-started#installation"
-  },"14": {
+  },"22": {
     "doc": "Getting Started",
     "title": "Quick start",
-    "content": "Execution . Here we show the most basic steps for a FISHNET analysis. There are a variety of configuration options which are detailed in Configuration. This code chunk assumes that you have an input summary statistics file at /path/to/input/file.csv (comma-separated with columns named “Genes” and “p_vals”) and a set of tab-delimited .txt network module files at /path/to/modules/directory/. $ ./fishnet.sh \\ --trait /path/to/input/file.csv \\ --modules /path/to/modules/directory/ . This will run both stages of FISHNET with 10 permutations (by default) using the default thresholding method (by default). Output files . The output files are saved in a results/ subdirectory (by default) relative to the current working directory where you launch fishnet.sh. Here, we guide you through the expected output directory structure. | The results/data/ directory stores the input summary statistics file and the input module networks. In addition, the results/data/&lt;trait&gt;RR/ directory saves the uniformly distributed p-values based on the input summary statitics file as &lt;trait&gt;RR.csv. results/ └── data/ └── &lt;trait&gt;/    └── 0-&lt;trait&gt;.csv └── &lt;trait&gt;RR/    └── &lt;trait&gt;RR.csv └── modules/ └── &lt;module_algorithm&gt;/ ├── &lt;module1&gt;.txt ├── ... └── &lt;module3&gt;.txt . | The results/&lt;trait&gt;/ directory stores results for the input summary statistics p-values. The enriched_modules/ directory lists significantly enriched modules for each network. The GO_summaries/ directory lists statistics for the GO overrepresentation analysis. The FISHNET genes for the trait and the network the genes originate from can be found in summary/&lt;network&gt;_&lt;trait&gt;_fishnet_genes_&lt;FDR-threshold&gt;.csv | . results/ └── &lt;trait&gt;/ └── background_genes/    ├── &lt;module_algorithm&gt;-&lt;module1&gt;.txt    ├── ...    └── &lt;module_algorithm&gt;-&lt;module3&gt;.txt └── enriched_modules/    ├── &lt;trait&gt;-&lt;module3&gt;    └── └── sig_&lt;trait&gt;-&lt;module3&gt;-179.txt └── GO_summaries/    └── &lt;trait&gt;/    ├── GO_summaries_0-&lt;trait&gt;_&lt;module1&gt;/    ├── GO_summaries_0-&lt;trait&gt;_&lt;module3&gt;/    └── └── sig_&lt;trait&gt;_0-&lt;trait&gt;_&lt;module3&gt;_179.csv ├── &lt;trait&gt;.txt └── masterSummaries/    └── summaries/    ├── &lt;trait&gt;_0-&lt;trait&gt;_&lt;module1&gt;.csv    ├── ...    └── &lt;trait&gt;_0-&lt;trait&gt;_&lt;module3&gt;.csv ├── master_summary.csv ├── master_summary_filtered.csv ├── master_summary_filtered_parsed.csv └── results/    └── raw/    ├── &lt;module1&gt;_0-&lt;trait&gt;_&lt;module1&gt;_or_fishnet_genes.csv    ├── &lt;module1&gt;_0-&lt;trait&gt;_&lt;module1&gt;_or_summary.csv    ├── ...    ├── &lt;module3&gt;_0-&lt;trait&gt;_&lt;module3&gt;_or_fishnet_genes.csv    └── &lt;module3&gt;_0-&lt;trait&gt;_&lt;module3&gt;_or_summary.csv └── summary/ ├── 0-&lt;trait&gt;_&lt;network1&gt;_summary.csv ├── &lt;network1&gt;_&lt;trait&gt;_fishnet_genes_&lt;FDR-threshold&gt;.csv ├── ├── ├── 0-&lt;trait&gt;_&lt;network2&gt;_summary.csv └── &lt;network2&gt;_&lt;trait&gt;_fishnet_genes_&lt;FDR-threshold&gt;.csv . | The results/&lt;trait&gt;RR/ directory stores results for the permutations. Subdirectory contents are identical to the original &lt;trait&gt; directory as described above. results/ └── &lt;trait&gt;RR/ ├── background_genes/ └── enriched_modules/    ├── &lt;trait&gt;RR-&lt;module1&gt;/    ├── &lt;trait&gt;RR-&lt;module3&gt;/    ├── GO_summaries/    └── &lt;trait&gt;RR/ ├── &lt;trait&gt;RR.txt └── masterSummaries/    └── summaries/ ├── master_summary.csv ├── master_summary_filtered.csv └── master_summary_filtered_parsed.csv . | . ",
+    "content": "Execution . Here we show the most basic steps for a FISHNET analysis. There are a variety of configuration options which are detailed in Configuration. This code chunk assumes that you have an input summary statistics file (comma-separated with columns named “Genes” and “p_vals”) and a set of tab-delimited network module files. example summary statistics file (data/pvals/exampleOR/maleWC/0-maleWC.csv) Genes,p_vals BRD3OS,0.12219547800000001 PTCH2,0.8389969 ASNS,0.274650263 TTLL9,0.111914007 AKR1D1,0.784900795 LINC00839,0.901963325 . example module file format (data/modules/ker_based/ppi2.txt) 0 1.0 SPEF2 PDE4B SERTAD3 1 1.0 CCL3L3 CCL15 CCL4L1 CCL3 CCL16 CCL5 CCL7 CCL28 CCL4L2 CCL14 CCL27 CXCL9 CCL8 CCL23 CXCL13 CCL26 CCL13 CCL24 CCL11 CCL3L1 CCL2 2 1.0 ZHX1 COPS6 PLGRKT SCO2 ABCB8 3 1.0 PLXNC1 PHACTR2 HCN3 NEK8 SEMA7A GPR63 GPR45 GPX1 TULP1 NCKAP5 BRPF3 FYN GCFC2 LTBP2 LDAF1 RHOU PAX7 SCARF2 4 1.0 C7 C8B NKX1-2 C8G AKR1C1 C6 MMEL1 C8A RFFL C5 ZBTB1 5 1.0 PIK3AP1 SLC23A1 ASAP1 CNTNAP1 SNX17 TGOLN2 CD2AP ASAP2 ACAP1 F2RL2 . To execute FISHNET, specify the --study argument with a directory path containing all trait subdirectories with summary statistics files and the --modules argument with the directory containing input network module files. $ ./fishnet.sh \\ --study /path/to/input/study/directory/ \\ --modules /path/to/modules/directory/ . This will run both stages of FISHNET with 10 permutations using the default thresholding method (by default). Output files . The output files are saved in the results/ directory (by default) relative to the current working directory where you launch fishnet.sh. Here, we guide you through the expected output directory structure. | The results directory will contain a &lt;study&gt; subdirectory containing output files for the input study traits and a &lt;study&gt;RR subdirectory containing similar output files for the permutations. results/ ├── &lt;study&gt;/ └── &lt;study&gt;RR/ . | Each results/&lt;study&gt;/ directory, will look like so: results/ └── &lt;study&gt;/ ├── GO_summaries/ ├── masterSummaries/ ├── master_summary.csv ├── master_summary_&lt;study&gt;.csv ├── master_summary_filtered.csv ├── master_summary_filtered_parsed.csv ├── pascalInput/ ├── pascalOutput/ ├── results/ └── summary/ . The GO_summaries/ directory lists statistics for the GO overrepresentation analysis. The FISHNET genes for the trait and the network the genes originate from can be found in summary/&lt;network&gt;_&lt;trait&gt;_fishnet_genes_&lt;FDR-threshold&gt;.csv . | . Read through the Example to interpret the output files. ",
     "url": "/getting-started#quick-start",
     
     "relUrl": "/getting-started#quick-start"
-  },"15": {
+  },"23": {
     "doc": "Home",
     "title": "FISHNET (Finding Significant Hits in NETworks)",
     "content": "FISHNET is a network-based tool that analyzes gene-level p-values to identify significant genes missed by standard methods, using prior biological knowledge to detect those that fail the genome-wide significance threshold but replicate nonetheless. FISHNET can use gene-level summary statistics from GWAS, TWAS with measured or predicted gene expression levels, proteome-wide association studies, RNA-Seq experiments, functional genetics screens, or any other source. It uses gene-gene interactions in network modules from co-expression networks, protein-protein interaction (PPI) networks, or other networks, together with gene function annotations from Gene Ontology (GO). FISHNET manuscript is currently available in bioRxiv1. The general workflow of FISHNET is shown in the figure below. (A) The gene-level p-values are input into module significance analysis. Module significance analysis outputs significant modules and their p-values. Gene ontology over- representation analysis identifies biological processes with significant over-representation among genes in each significant module. (B) The workflow illustrates the gene prioritization mechanism used to identify FISHNET genes. | Acharya et al. FISHNET: A Network-based Tool for Analyzing Gene-level P-values to Identify Significant Genes Missed by Standard Methods &#8617; . | . ",
     "url": "/#fishnet-finding-significant-hits-in-networks",
     
     "relUrl": "/#fishnet-finding-significant-hits-in-networks"
-  },"16": {
+  },"24": {
     "doc": "Home",
     "title": "Home",
     "content": " ",
