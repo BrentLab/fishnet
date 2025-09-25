@@ -1,8 +1,5 @@
 #!/bin/bash -ue
 
-######################################
-# Master script for FISHNET pipeline #
-######################################
 
 usage() {
 cat << EOF
@@ -43,21 +40,26 @@ Usage: fishnet.sh [options]
     --percentile-threshold <float>
         Specify a custom percentile threshold cutoff
         Default: 99
-    --num-permutations <integer>
-        Configures the number of permutations
-        Default: 10
-    --trait <path/to/input/file.csv>
-        Path to the input summary statistics file.
-        File must be a CSV file with colnames "Genes" and "p_vals".
-        Filename must not include any '_', '-', or '.' characters.
-        (Refer to ./test/maleWC/maleWC.csv for an example)
     --modules <path/to/modules/directory/>
         Path to directory containing network modules.
         Network module files must be tab-delimited .txt files
-        (Refer to ./test/ker_based/ for examples)
+        (e.g. data/modules/ker_based/)
+    --study <path/to/study/directory>
+        Path to directory containing trait subdirectories with input summary statistics files.
+        Runs FISHNET for all traits in this directory.
+        Summary statistics files must be CSV files with colnames "Genes" and "p_vals".
+        Filename must not include any '_', '-', or '.' characters.
+        (e.g. --study data/pvals/exampleOR/)
+    --study-random <path/to/random/permutation/study/directory>
+        Path to the directory containing uniformly distributed p-values for random permutations.
+        (e.g. --study data/pvals/exampleRR/)
+    --num-permutations <integer>
+        Configures the number of permutations
+        Default: 10
 EOF
 }
 
+# default parameters
 TEST_MODE=false
 SKIP_STAGE_1=false
 SKIP_STAGE_2=false
@@ -73,19 +75,19 @@ NXF_CONFIG_DEFAULT_SINGULARITY="./conf/fishnet_slurm.config"
 NXF_CONFIG="$NXF_CONFIG_DEFAULT_DOCKER"
 conda_env_provided=false
 nxf_config_provided=false
-OUTPUT_DIR=$( readlink -f "./results/" )
-DATADIR="${OUTPUT_DIR}/data/"
-MODULEDIR="${DATADIR}/modules/"
+RESULTS_PATH=$( readlink -f "./results/" )
 GENECOLNAME="Genes"
 PVALCOLNAME="p_vals"
 BONFERRONI_ALPHA=0.05 # for phase 1 nextflow scripts
-NUM_MODULE_FILES=0
 
-# parameters
 FDR_THRESHOLD=0.05
 PERCENTILE_THRESHOLD=99
 NUM_PERMUTATIONS=10
-TRAITPATH="NONE"
+STUDY_PATH="NONE"
+STUDY_RANDOM_PATH="NONE"
+STUDY="NONE"
+STUDY_RANDOM="NONE"
+
 
 # print usage if no args
 if [ "$#" -eq 0 ]; then
@@ -166,23 +168,33 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
-        --trait)
+        --study)
             # make sure we have a value and not another flag
-            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                TRAITPATH="$2"
+            if [[ -n "$2" && ! "$2" =~ ^- && -d "$2" ]]; then
+                STUDY_PATH="$2"
                 shift 2
             else
-                echo "ERROR: --trait requires a string path argument."
+                echo "ERROR: --study requires a valid directory path.."
                 exit 1
             fi
             ;;
         --modules)
             # make sure we have a value and not another flag
             if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                INPUTMODULEDIR="$2"
+                MODULE_FILE_PATH="$2"
                 shift 2
             else
                 echo "ERROR: --modules requires a string path argument."
+                exit 1
+            fi
+            ;;
+        --study-random)
+            # make sure we have a value and not another flag
+            if [[ -n "$2" && ! "$2" =~ ^- && -d "$2" ]]; then
+                STUDY_RANDOM_PATH="$2"
+                shift 2
+            else
+                echo "ERROR: --study-random requires a valid directory path.."
                 exit 1
             fi
             ;;
@@ -204,12 +216,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# check if both stage skip flags have been set
-if [ "$SKIP_STAGE_1" = true ] && [ "$SKIP_STAGE_2" = true ]; then
-    echo "Both --skip-stage-1 and --skip-stage-2 provided. Nothing to do. Exiting."
-    exit 0
-fi
-
 # check for singularity
 if [ "$SINGULARITY" = true ]; then
     # if singularity requested, but user did not specify --nxf_config
@@ -222,10 +228,10 @@ fi
 if [ "$CONDA" = true ]; then
     # if conda requested, but user did not specify --conda_env
     if [ "$conda_env_provided" = false ]; then
-        echo "conda env not provided"
         CONDA_ENV="$CONDA_ENV_DEFAULT"
     fi
 fi
+
 
 # print configs
 echo "Configs:"
@@ -240,80 +246,94 @@ if [ "$CONDA" = true ]; then
 fi
 echo " - nextflow config: $NXF_CONFIG"
 
+
 ### set test parameters ###
 if [ "$TEST_MODE" = true ]; then
-    TRAITPATH="./test/maleWC/maleWC.csv"
-    INPUTMODULEDIR="./test/ker_based/"
+    STUDY_PATH="./test/exampleOR"
+    STUDY_RANDOM_PATH="./test/exampleRR"
+    MODULE_FILE_PATH="./test/ker_based/"
 else
     # check for required input parameters
     # input trait file
-    if [ ! -f "$TRAITPATH" ]; then
-        echo "--trait $TRAITPATH FILE NOT FOUND"
+    if [ ! -d "$STUDY_PATH" ]; then
+        echo "--study $STUDY_PATH NOT FOUND"
+        exit 1
+    fi
+    if [ ! -d "$STUDY_RANDOM_PATH" ]; then
+        echo "--study $STUDY_RANDOM_PATH NOT FOUND"
         exit 1
     fi
     # input modules directory
-    if [ ! -d "$INPUTMODULEDIR" ]; then
-        echo "--modules $INPUTMODULEDIR DIRECTORY NOT FOUND"
+    if [ ! -d "$MODULE_FILE_PATH" ]; then
+        echo "--modules $MODULE_FILE_PATH DIRECTORY NOT FOUND"
         exit 1
     fi
 fi
 
-# process input pval file #
-filebasename=$( basename $TRAITPATH )
-TRAIT="${filebasename%.*}"
-TRAITRR="${TRAIT}RR"
+# TODO: allow this to run without specifying --study-random
+#       in which case, should generate uniformly distributed p-values for each study trait
 
-# copy over input pval file
-PVALFILEDIR="${DATADIR}/${TRAIT}"
-PVALFILEDIRRR="${DATADIR}/${TRAITRR}"
-mkdir -p $PVALFILEDIR $PVALFILEDIRRR
-PVALFILEPATH="${PVALFILEDIR}/0-${TRAIT}.csv"
-PVALFILEPATHRR="${PVALFILEDIRRR}/${TRAITRR}.csv"
-cp $TRAITPATH $PVALFILEPATH
-NUMTESTS=$(( $(wc -l < "$PVALFILEPATH") - 1 ))
+
+# ensure absolutepaths for nextflow
+STUDY_PATH=$( readlink -f "$STUDY_PATH" )
+STUDY=$( basename $STUDY_PATH )
+STUDY_RANDOM_PATH=$( readlink -f "$STUDY_RANDOM_PATH" )
+STUDY_RANDOM=$( basename $STUDY_RANDOM_PATH )
+MODULE_FILE_PATH=$( readlink -f "$MODULE_FILE_PATH" )
+
+# check and list traits in input study path
+TRAITDIRS=($(find "$STUDY_PATH" -mindepth 1 -maxdepth 1 -type d))
+NUM_TRAITS=${#TRAITDIRS[@]}
+echo "# Found ${NUM_TRAITS} traits"
+for trait in "${TRAITDIRS[@]}"; do
+    trait=$( basename $trait )
+    echo "> $trait"
+done
+
+RESULTS_PATH_OR="${RESULTS_PATH}/${STUDY}"
+RESULTS_PATH_RR="${RESULTS_PATH}/${STUDY_RANDOM}"
 
 # record number of module files
-NUM_MODULE_FILES=$( ls -1 ${INPUTMODULEDIR}/*.txt 2>/dev/null | wc -l)
-echo "> FOUND ${NUM_MODULE_FILES} module files"
+NUM_MODULE_FILES=$( ls -1 ${MODULE_FILE_PATH}/*.txt 2>/dev/null | wc -l)
+echo "# FOUND ${NUM_MODULE_FILES} module files"
 
-# copy over input modules files
-mkdir -p $MODULEDIR
-cp -r $INPUTMODULEDIR $MODULEDIR
-MODULE_ALGO=$( basename $INPUTMODULEDIR )
-MODULEFILEDIR=${MODULEDIR}/${MODULE_ALGO}
-
+# number of genes for random permutation
+NUMTESTS_RANDOM=$(( $(wc -l < "${STUDY_RANDOM_PATH}/${STUDY_RANDOM}.csv")  - 1 ))
 
 ### export parameters ###
-export TRAIT
-export TRAITRR
+export STUDY_PATH
+export STUDY
+export STUDY_RANDOM_PATH
+export STUDY_RANDOM
+export NUM_TRAITS
+export RANDOM_PERMUTATION
 export NUM_PERMUTATIONS
 export NUM_MODULE_FILES
 export PVALFILEDIR
 export PVALFILEPATH
 export PVALFILEPATHRR
 export MODULE_ALGO
-export MODULEFILEDIR
-export NUMTESTS
+export MODULE_FILE_PATH
+export NUMTESTS_RANDOM
 export GENECOLNAME
 export PVALCOLNAME
 export BONFERRONI_ALPHA
-export OUTPUT_DIR
+export RESULTS_PATH
+export RESULTS_PATH_OR
+export RESULTS_PATH_RR
 export FDR_THRESHOLD
 export PERCENTILE_THRESHOLD
 export NXF_CONFIG
 
 ### list of containers ###
 # contains all python dependencies for fishnet
-#   TODO: create single container with all python dependencies (include statsmodels)
-#   TODO: add to biocontainers 
-export container_python="docker://jungwooseok/dc_rp_genes:1.0"
-export container_R="docker://jungwooseok/r-webgestaltr:1.0"
+export container_python="docker://community.wave.seqera.io/library/python_scipy_pip_numpy_pruned:14820d092196f57e"
+export container_R="docker://community.wave.seqera.io/library/r-optparse_r-stringr_r-webgestaltr:8176ac8478d07225"
 export CONDA_ENV
 
-#################
-### FUNCTIONS ###
-#################
-
+#########################
+### PHASE 1 FUNCTIONS ###
+#########################
 pull_docker_image() {
 
     # boolean whether to pull or not (for job dependencies)
@@ -335,8 +355,8 @@ pull_docker_image() {
 
         container_python_docker=$container_python
         container_R_docker=$container_R
-        export container_python="$(pwd)/singularity_images/dc_rp_genes.sif"
-        export container_R="$(pwd)/singularity_images/r_webgestaltr.sif"
+        export container_python="$(pwd)/singularity_images/fishnet_container_python.sif"
+        export container_R="$(pwd)/singularity_images/fishnet_container_R.sif"
 
 
         # pull python container if not exist
@@ -371,12 +391,24 @@ EOT
     # check for conda environment, create if not exist
     if [ "$CONDA" = true ]; then
         if conda env list | awk '{print $1}' | grep -Fxq "$CONDA_ENV"; then
-            echo "Environment $CONDA_ENV found"
+            echo "Conda environment $CONDA_ENV found"
         else
-            echo "Environment $CONDA_ENV not found...creating"
+            echo "Conda environment $CONDA_ENV not found...creating"
             conda env create -f conf/fishnet_conda_environment.yml
             echo "done"
         fi
+    fi
+
+    # TODO: pull nextflow singuarity images prior to run (TEMPORARY BUG FIX)
+    echo "pulling singularity images for nextflow (temp bug fix)"
+    if [ ! -f "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da-b033d6a4ea3a42a6f5121a82b262800f1219b382-0.img" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da-b033d6a4ea3a42a6f5121a82b262800f1219b382-0.img" https://depot.galaxyproject.org/singularity/mulled-v2-9d836da785124bb367cbe6fbfc00dddd2107a4da:b033d6a4ea3a42a6f5121a82b262800f1219b382-0
+    fi
+    if [ ! -f "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/depot.galaxyproject.org-singularity-pandas:1.1.5.img" https://depot.galaxyproject.org/singularity/pandas:1.1.5
+    fi
+    if [ ! -f "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1.img" ]; then
+        singularity pull "${SINGULARITY_CACHEDIR}/jungwooseok-mea_pascal-1.1.img" docker://jungwooseok/mea_pascal:1.1
     fi
 
     export PULL_PYTHON_CONTAINER
@@ -385,94 +417,112 @@ EOT
     export JOB_PULL_SINGULARITY_R_ID
 }
 
+
 phase1_step1() {
 
-    # (1) nextflow original run
+    # (1) nextflow (original)
     echo "# STEP 1.1: executing Nextflow MEA pipeline on original run"
-    echo $SINGULARITY
-    echo $PULL_PYTHON_CONTAINER
-    echo $PULL_R_CONTAINER
-    echo $JOB_PULL_SINGULARITY_PYTHON_ID
-    echo $JOB_PULL_SINGULARITY_R_ID
+
+    # MULTI-TRAIT: generate temporary SBATCH array job file
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    find "$STUDY_PATH" -mindepth 1 -maxdepth 1 -type d > $tmpfile
+
+    # run nextflow
     if [ "$SINGULARITY" = true ]; then
         if [ "$PULL_PYTHON_CONTAINER" = true ]; then
             if [ "$PULL_R_CONTAINER" = true ]; then
-                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID":"$JOB_PULL_SINGULARITY_R_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
+                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID":"$JOB_PULL_SINGULARITY_R_ID" --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile )
             else
-                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
+                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_PYTHON_ID"  --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile)
             fi
         elif [ "$PULL_R_CONTAINER" = true ]; then
-                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_R_ID" ./scripts/phase1/phase1_step1.sh $(pwd))
+                JOB_STAGE1_STEP1=$(sbatch --dependency=afterok:"$JOB_PULL_SINGULARITY_R_ID" --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile)
         else
-            JOB_STAGE1_STEP1=$(sbatch ./scripts/phase1/phase1_step1.sh $(pwd))
+            JOB_STAGE1_STEP1=$(sbatch --array=1-${NUM_TRAITS} ./scripts/phase1/phase1_step1_multi.sh $(pwd) $tmpfile)
         fi
         JOB_STAGE1_STEP1_ID=$(echo "$JOB_STAGE1_STEP1" | awk '{print $4}')
     else
-        ./scripts/phase1/phase1_step1.sh $(pwd)
+        ./scripts/phase1/phase1_step1_multi.sh $(pwd)
     fi
+}
 
-    # (4.1) original
-    summaries_path_original="${OUTPUT_DIR}/masterSummaries/summaries/"
-    if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP4_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
+phase1_step2() {
+
+    # (2) compile results (original)
+    echo "# STEP 1.2: compiling permutation results"
+    SUMMARIES_PATH_ORIGINAL="${RESULTS_PATH_OR}/masterSummaries/summaries/"
+    if [ "$CONDA" = true ]; then
+        JOB_STAGE1_STEP2_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase1_step4_original
-#SBATCH -o ./logs/phase1_step4_original_%J.out
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+#SBATCH -J phase1_step2_original_${STUDY}
+#SBATCH -o ./logs/phase1_step2_original_%J.out
+source activate $CONDA_ENV
 python3 ./scripts/phase1/compile_results.py \
-    --dirPath $summaries_path_original \
-    --identifier $TRAIT \
-    --output $OUTPUT_DIR
+    --dirPath $SUMMARIES_PATH_ORIGINAL \
+    --identifier $STUDY \
+    --output $RESULTS_PATH_OR
 EOT
 )
-        JOB_STAGE1_STEP4_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP4_ORIGINAL" | awk '{print $4}')
+        JOB_STAGE1_STEP2_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP2_ORIGINAL" | awk '{print $4}')
+    elif [ "$SINGULARITY" = true ]; then
+        JOB_STAGE1_STEP2_ORIGINAL=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase1_step2_original
+#SBATCH -o ./logs/phase1_step2_original_%J.out
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+python3 ./scripts/phase1/compile_results.py \
+    --dirPath $SUMMARIES_PATH_ORIGINAL \
+    --identifier $STUDY \
+    --output $RESULTS_PATH_OR
+EOT
+)
+        JOB_STAGE1_STEP2_ORIGINAL_ID=$(echo "$JOB_STAGE1_STEP2_ORIGINAL" | awk '{print $4}')
     else
         docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
             "python3 ./scripts/phase1/compile_results.py \
-                --dirPath $summaries_path_original \
+                --dirPath $SUMMARIES_PATH_ORIGINAL \
                 --identifier $TRAIT \
-                --output $OUTPUT_DIR"
+                --output $RESULTS_PATH"
     fi
-
 }
 
 phase1_step3() {
 
-    # (2) generate uniform p-values
-    echo "# STEP 1.2: generating uniformly distributed p-values"
-    if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP2=$(sbatch <<EOT
-#!/bin/bash
-#SBATCH -J phase1_step2
-#SBATCH -o ./logs/phase1_step2_%J.out
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-python3 ./scripts/phase1/generate_uniform_pvals.py \
-    --genes_filepath $PVALFILEPATH
-EOT
-)
-        JOB_STAGE1_STEP2_ID=$(echo "$JOB_STAGE1_STEP2" | awk '{print $4}')
-    else
-        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python  /bin/bash -c \
-            "python3 ./scripts/phase1/generate_uniform_pvals.py \
-            --genes_filepath $PVALFILEPATH"
-    fi
+    # TODO: generate uniform p-values if --study-random not specified
 
     # (3) nextflow random permutation run
     echo "# STEP 1.3: executing Nextflow MEA pipeline on random permutations"
-    echo "executing Nextflow MEA pipeline on random permutations"
     if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP2_ID" ./scripts/phase1/phase1_step3.sh $(pwd))
+        JOB_STAGE1_STEP3=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP1_ID" ./scripts/phase1/phase1_step3_multi.sh $(pwd))
         JOB_STAGE1_STEP3_ID=$(echo "$JOB_STAGE1_STEP3" | awk '{print $4}')
     else
-        ./scripts/phase1/phase1_step3.sh $(pwd)
+        ./scripts/phase1/phase1_step3_multi.sh $(pwd)
     fi
+}
 
-    # (4.2)
-    summaries_path_permutation="${OUTPUT_DIR}/masterSummaries_RP/summaries/"
-    if [ "$SINGULARITY" = true ]; then
-        # dynamically set memory allocation based on number of modules and number of permutations
-        # currently: 1 MB * N(modules) * N(permutations)
-        MEM_ALLOCATION=$(( $NUM_MODULE_FILES * $NUM_PERMUTATIONS ))
+phase1_step4() {
+
+    # (4)
+    echo "# STEP 1.4: compiling permutation results"
+    SUMMARIES_PATH_PERMUTATION="${RESULTS_PATH_RR}/masterSummaries/summaries/"
+    # dynamically set memory allocation based on number of modules and number of permutations
+    # currently: 2 MB * N(modules) * N(permutations)
+    MEM_ALLOCATION=$(( 2 * $NUM_MODULE_FILES * $NUM_PERMUTATIONS ))
+    if [ "$CONDA" = true ]; then
+        JOB_STAGE1_STEP4_PERMUTATION=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP3_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase1_step4_permutation_${STUDY_RANDOM}
+#SBATCH --mem ${MEM_ALLOCATION}M
+#SBATCH -o ./logs/phase1_step4_permutation_%J.out
+source activate $CONDA_ENV
+python3 ./scripts/phase1/compile_results.py \
+    --dirPath $SUMMARIES_PATH_PERMUTATION \
+    --identifier $STUDY_RANDOM \
+    --output $RESULTS_PATH_RR
+EOT
+)
+        JOB_STAGE1_STEP4_PERMUTATION_ID=$(echo "$JOB_STAGE1_STEP4_PERMUTATION" | awk '{print $4}')
+    elif [ "$SINGULARITY" = true ]; then
         JOB_STAGE1_STEP4_PERMUTATION=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP3_ID" <<EOT
 #!/bin/bash
 #SBATCH -J phase1_step4_permutation
@@ -480,119 +530,117 @@ EOT
 #SBATCH -o ./logs/phase1_step4_permutation_%J.out
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
 python3 ./scripts/phase1/compile_results.py \
-    --dirPath $summaries_path_permutation \
-    --identifier ${TRAITRR} \
-    --output $OUTPUT_DIR
+    --dirPath $SUMMARIES_PATH_PERMUTATION \
+    --identifier $STUDY_RANDOM \
+    --output $RESULTS_PATH_RR
 EOT
 )
         JOB_STAGE1_STEP4_PERMUTATION_ID=$(echo "$JOB_STAGE1_STEP4_PERMUTATION" | awk '{print $4}')
     else
         docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
             "python3 ./scripts/phase1/compile_results.py \
-                --dirPath $summaries_path_permutation \
-                --identifier ${TRAITRR} \
-                --output $OUTPUT_DIR"
-    fi
-
-}
-
-phase1_step5() {
-
-    # (5) organize phase 1 results
-    echo "# STEP 5: restructuring phase 1 results for input to phase 2"
-    # TODO: consider defining shell functions in separate file
-    # function to organize phase 1 nextflow pipeline results
-    if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE1_STEP5=$(sbatch --dependency=afterok:"$JOB_STAGE1_STEP4_ORIGINAL_ID","$JOB_STAGE1_STEP4_PERMUTATION_ID" <<EOT
-#!/bin/bash
-#SBATCH -J phase1_step5
-#SBATCH -o ./logs/phase1_step5_%J.out
-organize_nextflow_results() {
-    trait=\$1
-    results_dir=\$2
-    traitRR=\$3
-
-    # create outer trait directories
-    trait_dir="\${results_dir}/\${trait}/"
-    traitRR_dir="\${results_dir}/\${traitRR}/"
-    mkdir -p \$trait_dir \$traitRR_dir
-
-    # move over original results
-    mv "\${results_dir}/GO_summaries" \${trait_dir}
-    mv "\${results_dir}/masterSummaries" \${trait_dir}
-    mv "\${results_dir}/master_summary_\${trait}.csv" \${trait_dir}/master_summary.csv
-
-    # 3. move over permutation results
-    mv "\${results_dir}/GO_summaries_RP" "\${traitRR_dir}/GO_summaries"
-    mv "\${results_dir}/masterSummaries_RP" "\${traitRR_dir}/masterSummaries"
-    mv "\${results_dir}/master_summary_\${traitRR}.csv" \${traitRR_dir}/master_summary.csv
-}
-organize_nextflow_results $TRAIT $OUTPUT_DIR $TRAITRR
-EOT
-)
-        JOB_STAGE1_STEP5_ID=$(echo "$JOB_STAGE1_STEP5" | awk '{print $4}')
-    else
-        organize_nextflow_results() {
-            trait=$1
-            results_dir=$2
-            traitRR="${TRAITRR}"
-
-            # create outer trait directories
-            trait_dir="${results_dir}/${TRAIT}/"
-            traitRR_dir="${results_dir}/${TRAITRR}/"
-            mkdir -p $TRAIT_dir $TRAITRR_dir
-
-            # move over original results
-            mv "${results_dir}/GO_summaries" ${trait_dir}
-            mv "${results_dir}/masterSummaries" ${trait_dir}
-            mv "${results_dir}/master_summary_${TRAIT}.csv" ${trait_dir}/master_summary.csv
-
-            # 3. move over permutation results
-            mv "${results_dir}/GO_summaries_RP" "${traitRR_dir}/GO_summaries"
-            mv "${results_dir}/masterSummaries_RP" "${traitRR_dir}/masterSummaries"
-            mv "${results_dir}/master_summary_${TRAITRR}.csv" ${traitRR_dir}/master_summary.csv
-        }
-        organize_nextflow_results $TRAIT $OUTPUT_DIR
+                --dirPath $SUMMARIES_PATH_PERMUTATION \
+                --identifier $STUDY_RANDOM \
+                --output $RESULTS_PATH_RR"
     fi
 }
 
+
+#########################
+### PHASE 2 FUNCTIONS ###
+#########################
 phase2_step0() {
     # (0) filter the summary file for original/permuted runs
     echo "# STEP 2.0: filtering + parsing master_summary.csv files"
-    ( head -n 1 "${OUTPUT_DIR}/${TRAIT}/master_summary.csv"; grep 'True' "${OUTPUT_DIR}/${TRAIT}/master_summary.csv" ) > "${OUTPUT_DIR}/${TRAIT}/master_summary_filtered.csv"
-    cut -d ',' -f 1-8 "${OUTPUT_DIR}/${TRAIT}/master_summary_filtered.csv" > "${OUTPUT_DIR}/${TRAIT}/master_summary_filtered_parsed.csv"
+    cp "${RESULTS_PATH_OR}/master_summary_${STUDY}.csv" "${RESULTS_PATH_OR}/master_summary.csv"
+    ( head -n 1 "${RESULTS_PATH_OR}/master_summary.csv"; grep 'True' "${RESULTS_PATH_OR}/master_summary.csv" ) > "${RESULTS_PATH_OR}/master_summary_filtered.csv"
+    cut -d ',' -f 1-8 "${RESULTS_PATH_OR}/master_summary_filtered.csv" > "${RESULTS_PATH_OR}/master_summary_filtered_parsed.csv"
 
-    ( head -n 1 "${OUTPUT_DIR}/${TRAITRR}/master_summary.csv"; grep 'True' "${OUTPUT_DIR}/${TRAITRR}/master_summary.csv" ) > "${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered.csv"
-    cut -d ',' -f 1-8 "${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered.csv" > "${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv"
+    cp "${RESULTS_PATH_RR}/master_summary_${STUDY_RANDOM}.csv" "${RESULTS_PATH_RR}/master_summary.csv"
+    ( head -n 1 "${RESULTS_PATH_RR}/master_summary.csv"; grep 'True' "${RESULTS_PATH_RR}/master_summary.csv" ) > "${RESULTS_PATH_RR}/master_summary_filtered.csv"
+    cut -d ',' -f 1-8 "${RESULTS_PATH_RR}/master_summary_filtered.csv" > "${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv"
+}
+
+# generates tab-delimited file with all pairs
+# of module networks and traits for array job
+generate_network_trait_combinations() {
+    local networks_dir="$1"
+    local study_dir="$2"
+    local output_file="$3"
+
+    # clear output file
+    > "$output_file"
+
+    for network_file in "$networks_dir"/*.txt; do
+        network_name=$(basename "$network_file" .txt)
+        for trait in "$study_dir"/*/; do
+            trait_name=$(basename "$trait")
+            echo -e "${network_name}\t${trait_name}" >> "$output_file"
+        done
+    done
 }
 
 phase2_step1_default() {
     ## (1) generate statistics for original run
     echo "# STEP 2.1: generating statistics for original run"
+
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+    NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
+
     if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step1_default
-#SBATCH --array=1-$num_networks
+#SBATCH -J phase2_step1_default_${STUDY}
+#SBATCH --mem-per-cpu=4G
+#SBATCH --array=1-$NUM_ARRAY_JOBS
 #SBATCH -o ./logs/phase2_step1_default_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile  )
-network="\${network%.*}" # remove extension
-echo "Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-    python3 ./scripts/phase2/dc_generate_or_statistics.py \
-        --gene_set_path $PVALFILEDIR \
-        --master_summary_path ${OUTPUT_DIR}/${TRAIT}/master_summary_filtered_parsed.csv \
-        --trait $TRAIT  \
-        --module_path ${MODULEFILEDIR}/\${network}.txt \
-        --go_path ${OUTPUT_DIR}/${TRAIT}/GO_summaries/${TRAIT}/ \
-        --study $TRAIT \
-        --output_path ${OUTPUT_DIR}/${TRAIT}/results/raw/ \
-        --network \$network
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_generate_or_statistics.py \
+    --gene_set_path \$PVALFILEPATH \
+    --master_summary_path ${RESULTS_PATH_OR}/master_summary_filtered_parsed.csv \
+    --trait \$TRAIT  \
+    --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+    --go_path ${RESULTS_PATH_OR}/GO_summaries/\${TRAIT}/ \
+    --study $STUDY \
+    --output_path ${RESULTS_PATH_OR}/results/raw/ \
+    --network \$NETWORK
 EOT
 )
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP1_DEFAULT=$(sbatch <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step1_default_${STUDY}
+#SBATCH --mem-per-cpu=4G
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH -o ./logs/phase2_step1_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_generate_or_statistics.py \
+        --gene_set_path \$PVALFILEPATH \
+        --master_summary_path ${RESULTS_PATH_OR}/master_summary_filtered_parsed.csv \
+        --trait \$TRAIT  \
+        --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+        --go_path ${RESULTS_PATH_OR}/GO_summaries/\${TRAIT}/ \
+        --study $STUDY \
+        --output_path ${RESULTS_PATH_OR}/results/raw/ \
+        --network \$NETWORK
+EOT
+)
+        fi
         #rm $tmpfile
         JOB_STAGE2_STEP1_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP1_DEFAULT" | awk '{print $4}')
     else
@@ -614,61 +662,68 @@ EOT
     fi
 }
 
-create_tmp_threshold_network_pairs_default() {
-    # 1. take 25% of number of genes form original p-values input file
-    #pct_25=$( bc <<< "scale=2; 0.25 * $NUMTESTS" )
-    #rounded_25=$( printf "%.0f" "$pct_25" )
-    rounded_25=$(( (25 * NUMTESTS + 50) / 100 ))
-    # 2. range 10..{1} take nearest multiple of 10
-    max_threshold=$(( rounded_25 - (rounded_25 % 10) ))
-    thresholds=()
-    for (( i=10; i<=max_threshold; i+=10 )); do
-        thresholds+=( "$i" )
-    done
-
-    modules=( $( ls ./test/ker_based/*.txt ) )
-    for f in "${modules[@]}"; do
-        base="$(basename "$f" .txt )"
-        for t in "${thresholds[@]}"; do
-            echo -e "${t}\t${base}"
-        done
-    done
-}
-
 phase2_step2_default() {
 
     # (2.2) generate statistics for permutation run
     echo "# STEP 2.2: generating statistics for permutation runs"
-    genes_rpscores_filedir="./results/RPscores/${TRAITRR}/"
+
+    # generates tab-delimited file with all pairs of
+    # module newtorks and thresholds for array job
+    create_tmp_threshold_network_pairs_default() {
+        local output_file="$1"
+
+        # clear output file
+        > "$output_file"
+
+        # 1. take 25% of number of genes form original p-values input file
+        local ROUNDED_25=$(( (25 * NUMTESTS_RANDOM + 50) / 100 ))
+        # 2. range 10..{1} take nearest multiple of 10
+        local MAX_THRESHOLD=$(( ROUNDED_25 - (ROUNDED_25 % 10) ))
+        local THRESHOLDS=()
+        for (( i=10; i<=MAX_THRESHOLD; i+=10 )); do
+            THRESHOLDS+=( "$i" )
+        done
+
+        local MODULES=( $(ls ${MODULE_FILE_PATH}/*.txt) )
+        for f in "${MODULES[@]}"; do
+            BASE="$(basename "$f" .txt )"
+            for t in "${THRESHOLDS[@]}"; do
+                echo -e "${t}\t${BASE}" >> "$output_file"
+            done
+        done
+    }
+
+    GENES_RPSCORES_FILEDIR="${RESULTS_PATH_RR}/RPscores/${STUDY_RANDOM}"
     tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-    create_tmp_threshold_network_pairs_default > $tmpfile
+    create_tmp_threshold_network_pairs_default $tmpfile
+
     if [ "$SINGULARITY" = true ]; then
-        num_pairs=$( wc -l < $tmpfile )
+        NUM_PAIRS=$( wc -l < $tmpfile )
         if [ "$CONDA" = true ]; then
             echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
             JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step2_default
-#SBATCH --array=1-$num_pairs
+#SBATCH -J phase2_step2_default_${STUDY_RANDOM}
+#SBATCH --array=1-$NUM_PAIRS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
 #SBATCH -o ./logs/phase2_step2_default_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
-threshold=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
-echo \$network
-echo \$threshold
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
+THRESHOLD=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
+echo \$NETWORK
+echo \$THRESHOLD
 
 source activate $CONDA_ENV
 
 python3 ./scripts/phase2/dc_generate_rp_statistics.py \
-    --gene_set_path $genes_rpscores_filedir \
-    --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv \
-    --trait ${TRAITRR} \
-    --module_path ${MODULEFILEDIR}/\${network}.txt \
-    --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries/${TRAITRR}/ \
-    --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw/ \
-    --network \$network \
-    --threshold \$threshold \
+    --gene_set_path $GENES_RPSCORES_FILEDIR \
+    --master_summary_path ${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv \
+    --trait ${STUDY_RANDOM} \
+    --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+    --go_path ${RESULTS_PATH_RR}/GO_summaries/${STUDY_RANDOM}/ \
+    --output_path ${RESULTS_PATH_RR}/results/raw/ \
+    --network \$NETWORK \
+    --threshold \$THRESHOLD \
     --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
@@ -676,30 +731,31 @@ EOT
             echo "RUNNING WITH SINGULARITY"
             JOB_STAGE2_STEP2_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step2_default
-#SBATCH --array=1-$num_pairs
+#SBATCH -J phase2_step2_default_${STUDY_RANDOM}
+#SBATCH --array=1-$NUM_PAIRS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
 #SBATCH -o ./logs/phase2_step2_default_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
-threshold=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
-echo \$network
-echo \$threshold
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2 )
+THRESHOLD=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1 )
+echo \$NETWORK
+echo \$THRESHOLD
+
 singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
     python3 ./scripts/phase2/dc_generate_rp_statistics.py \
-        --gene_set_path $genes_rpscores_filedir \
-        --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_filtered_parsed.csv \
-        --trait ${TRAITRR} \
-        --module_path ${MODULEFILEDIR}/\${network}.txt \
-        --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries/${TRAITRR}/ \
-        --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw/ \
-        --network \$network \
-        --threshold \$threshold \
+        --gene_set_path $GENES_RPSCORES_FILEDIR \
+        --master_summary_path ${RESULTS_PATH_RR}/master_summary_filtered_parsed.csv \
+        --trait ${STUDY_RANDOM} \
+        --module_path ${MODULE_FILE_PATH}/\${NETWORK}.txt \
+        --go_path ${RESULTS_PATH_RR}/GO_summaries/${STUDY_RANDOM}/ \
+        --output_path ${RESULTS_PATH_RR}/results/raw/ \
+        --network \$NETWORK \
+        --threshold \$THRESHOLD \
         --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
         fi
-            JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
+        JOB_STAGE2_STEP2_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP2_DEFAULT" | awk '{print $4}')
     else
         while IFS=$'\t' read -r threshold network; do
             echo "Threshold $threshold, Network: $network"
@@ -720,34 +776,70 @@ EOT
 }
 
 phase2_step3_default() {
+
     # (3) summarize statistics
     echo "# STEP 2.3: summarizing statistics"
+
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+    NUM_ARRAY_JOBS=$( wc -l < $tmpfile)
+
     if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step3_default
-#SBATCH --array=1-$num_networks
+#SBATCH -J phase2_step3_default_${STUDY}
+#SBATCH --array=1-$NUM_ARRAY_JOBS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
 #SBATCH -o ./logs/phase2_step3_default_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-echo "Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-    python3 ./scripts/phase2/dc_summary_statistics_rp.py \
-        --trait $TRAIT \
-        --input_path $OUTPUT_DIR \
-        --or_id $TRAIT \
-        --rr_id $TRAITRR \
-        --input_file_rr_id $TRAITRR \
-        --network \$network \
-        --output_path ${OUTPUT_DIR}/${TRAIT}/summary/
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+NETWORK="\${NETWORK%.*}" # remove extension
+echo "Network: \$NETWORK"
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_summary_statistics_rp.py \
+    --trait \$TRAIT \
+    --input_path ${RESULTS_PATH} \
+    --or_id ${STUDY} \
+    --rr_id ${STUDY_RANDOM} \
+    --input_file_rr_id ${STUDY_RANDOM} \
+    --network \$NETWORK \
+    --output_path ${RESULTS_PATH_OR}/summary/ \
+    --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
-        #rm $tmpfile
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP3_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step3_default_${STUDY}
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step3_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+NETWORK="\${NETWORK%.*}" # remove extension
+echo "Network: \$NETWORK"
+
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_summary_statistics_rp.py \
+        --trait \$TRAIT \
+        --input_path ${RESULTS_PATH} \
+        --or_id ${STUDY} \
+        --rr_id ${STUDY_RANDOM} \
+        --input_file_rr_id ${STUDY_RANDOM} \
+        --network \$NETWORK \
+        --output_path ${RESULTS_PATH_OR}/summary/ \
+        --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        fi
+        # rm $tmpfile
         JOB_STAGE2_STEP3_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP3_DEFAULT" | awk '{print $4}')
     else
         for network in `ls ${MODULEFILEDIR}/`;
@@ -768,32 +860,67 @@ EOT
 }
 
 phase2_step4_default() {
+
     # (4) identify MEA passing genes
     echo "# STEP 2.4: identify MEA-passing genes"
+
+    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
+    generate_network_trait_combinations ${MODULE_FILE_PATH} ${STUDY_PATH} ${tmpfile}
+    NUM_ARRAY_JOBS=$( wc -l < $tmpfile )
+
     if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
+        if [ "$CONDA" = true ]; then
+            echo "RUNNING WITH CONDA ENVIRONMENT ($CONDA_ENV)"
+            JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
 #!/bin/bash
-#SBATCH -J phase2_step4_default
-#SBATCH --array=1-$num_networks
+#SBATCH -J phase2_step4_default_${STUDY}
+#SBATCH --array=1-$NUM_ARRAY_JOBS
 #SBATCH --mem-per-cpu=4G
 #SBATCH --cpus-per-task=1
 #SBATCH -o ./logs/phase2_step4_default_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-echo "Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-    python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
-        --trait $TRAIT \
-        --geneset_input $PVALFILEDIR\
-        --FDR_threshold $FDR_THRESHOLD \
-        --percentile_threshold $PERCENTILE_THRESHOLD \
-        --network \$network \
-        --input_path ${OUTPUT_DIR}/${TRAIT}
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+
+source activate $CONDA_ENV
+
+python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
+    --trait \$TRAIT \
+    --geneset_input \$PVALFILEPATH \
+    --FDR_threshold $FDR_THRESHOLD \
+    --percentile_threshold $PERCENTILE_THRESHOLD \
+    --network \$NETWORK \
+    --input_path ${RESULTS_PATH_OR} \
+    --num_permutations ${NUM_PERMUTATIONS}
 EOT
 )
+        else
+            echo "RUNNING WITH SINGULARITY"
+            JOB_STAGE2_STEP4_DEFAULT=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP3_DEFAULT_ID" <<EOT
+#!/bin/bash
+#SBATCH -J phase2_step4_default_${STUDY}
+#SBATCH --array=1-$NUM_ARRAY_JOBS
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./logs/phase2_step4_default_%A_%a.out
+NETWORK=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f1 )
+TRAIT=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f2 )
+PVALFILEPATH="${STUDY_PATH}/\${TRAIT}/"
+echo "Network: \$NETWORK"
+
+singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
+    python3 ./scripts/phase2/dc_identify_mea_passing_genes.py \
+        --trait \$TRAIT \
+        --geneset_input \$PVALFILEPATH \
+        --FDR_threshold $FDR_THRESHOLD \
+        --percentile_threshold $PERCENTILE_THRESHOLD \
+        --network \$NETWORK \
+        --input_path ${RESULTS_PATH_OR} \
+        --num_permutations ${NUM_PERMUTATIONS}
+EOT
+)
+        fi
         #rm $tmpfile
         JOB_STAGE2_STEP4_DEFAULT_ID=$(echo "$JOB_STAGE2_STEP4_DEFAULT" | awk '{print $4}')
     else
@@ -813,398 +940,10 @@ EOT
     fi
 }
 
-phase2_step1_alternate() {
 
-    # (1) generate background gene sets for GO analysis
-    echo "# STEP 1: generating background gene sets for GO analysis"
-    if [ "$SINGULARITY" = true ]; then
-    JOB_STAGE2_STEP1_ALTERNATE=$(sbatch <<EOT
-#!/bin/bash
-#SBATCH -J phase2_step1_alternate
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step1_alternate_%J.out
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-    python3 ./scripts/phase2/dc_fishnet_background_genes.py \
-        --genes_filepath $PVALFILEPATHRR \
-        --module_filepath $MODULEFILEDIR \
-        --output_filepath ${OUTPUT_DIR}/${TRAIT}/
-# (1.1) copy background genes to permutation directory
-cp -r ${OUTPUT_DIR}/${TRAIT}/background_genes/ ${OUTPUT_DIR}/${TRAITRR}/
-EOT
-)
-        JOB_STAGE2_STEP1_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP1_ALTERNATE" | awk '{print $4}')
-    else
-        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-            "python3 ./scripts/phase2/dc_fishnet_background_genes.py \
-                --genes_filepath $PVALFILEPATHRR \
-                --module_filepath $MODULEFILEDIR \
-                --output_filepath ${OUTPUT_DIR}/${TRAIT}/"
-        # (1.1) copy background genes to permutation directory
-        cp -r ${OUTPUT_DIR}/${TRAIT}/background_genes/ ${OUTPUT_DIR}/${TRAITRR}/
-    fi
-
-}
-
-phase2_step2_original_alternate() {
-
-    # (2) Extract and save module genes as individual files for modules that satisfy Bonferroni 0.25
-    echo "# STEP 2.1: extract and save modules that satisfy Bonferroni threshold (original run)"
-    # (2.1) original run
-    if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE2_STEP2_ORIGINAL_ALTERNATE=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_ALTERNATE_ID" <<EOT
-#!/bin/bash
-#SBATCH -J phase2_step2_original_alternate
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step2_original_alternate_%J.out
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-    python3 ./scripts/phase2/dc_fishnet_module_genes.py \
-        --genes_filepath $PVALFILEPATHRR \
-        --module_filepath $MODULEFILEDIR \
-        --master_summary_path ${OUTPUT_DIR}/${TRAIT}/ \
-        --study $TRAIT
-EOT
-)
-        JOB_STAGE2_STEP2_ORIGINAL_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP2_ORIGINAL_ALTERNATE" | awk '{print $4}')
-    else
-        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-            "python3 ./scripts/phase2/dc_fishnet_module_genes.py \
-                --genes_filepath $PVALFILEPATHRR \
-                --module_filepath $MODULEFILEDIR \
-                --master_summary_path ${OUTPUT_DIR}/${TRAIT}/ \
-                --study $TRAIT"
-    fi
-}
-
-phase2_step2_permutation_alternate() {
-
-    # (2) Extract and save module genes as individual files for modules that satisfy Bonferroni 0.25
-    echo "# STEP 2.2: extract and save modules that satisfy Bonferroni threshold (permutation run)"
-    # (2.2) permutation run
-    if [ "$SINGULARITY" = true ]; then
-        JOB_STAGE2_STEP2_PERMUTATION_ALTERNATE=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP1_ALTERNATE_ID" <<EOT
-#!/bin/bash
-#SBATCH -J phase2_step2_permutation_alternate
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step2_permutation_alternate_%J.out
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python \
-    python3 ./scripts/phase2/dc_fishnet_module_genes.py \
-        --genes_filepath $PVALFILEPATHRR \
-        --module_filepath $MODULEFILEDIR \
-        --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/ \
-        --study $TRAITRR
-EOT
-)
-        JOB_STAGE2_STEP2_PERMUTATION_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP2_PERMUTATION_ALTERNATE" | awk '{print $4}')
-    else
-        docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-            "python3 ./scripts/phase2/dc_fishnet_module_genes.py \
-                --genes_filepath $PVALFILEPATHRR \
-                --module_filepath $MODULEFILEDIR \
-                --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/ \
-                --study $TRAITRR"
-    fi
-}
-
-phase2_step3_original_alternate() {
-
-    # (3) Run GO analysis
-    echo "# STEP 3.1: running GO analysis (original run)"
-    # (3.1) original run
-    set +e
-    if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP3_ORIGINAL_ALTERNATE=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_ORIGINAL_ALTERNATE_ID" <<EOT
-#!/bin/bash
-#SBATCH -J phase2_step3_original_alternate
-#SBATCH --array=1-$num_networks
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step3_original_alternate_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-echo "Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_R \
-    Rscript ./scripts/phase2/dc_ORA_cmd.R \
-        --sigModuleDir ${OUTPUT_DIR}/${TRAIT}/enriched_modules/${TRAIT}-\${network}/ \
-        --backGroundGenesFile ${OUTPUT_DIR}/${TRAIT}/background_genes/${MODULE_ALGO}-\${network}.txt \
-        --summaryRoot ${OUTPUT_DIR}/${TRAIT}/GO_summaries_alternate/ \
-        --reportRoot ${OUTPUT_DIR}/${TRAIT}/report_sumamries_alternate/
-EOT
-)
-        #rm $tmpfile
-        JOB_STAGE2_STEP3_ORIGINAL_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP3_ORIGINAL_ALTERNATE" | awk '{print $4}')
-    else
-        for network in `ls ${MODULEFILEDIR}/`;
-        do
-            echo "Network: $network"
-            network="${network%.*}" # remove extension
-            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_R /bin/bash -c \
-                "Rscript ./scripts/phase2/dc_ORA_cmd.R \
-                    --sigModuleDir ${OUTPUT_DIR}/${TRAIT}/enriched_modules/${TRAIT}-${network}/ \
-                    --backGroundGenesFile ${OUTPUT_DIR}/${TRAIT}/background_genes/${MODULE_ALGO}-${network}.txt \
-                    --summaryRoot ${OUTPUT_DIR}/${TRAIT}/GO_summaries_alternate/ \
-                    --reportRoot ${OUTPUT_DIR}/${TRAIT}/report_sumamries_alternate/"
-        done
-    fi
-    set -e
-}
-
-phase2_step3_permutation_alternate() {
-
-    # (3) Run GO analysis
-    echo "# STEP 3.1: running GO analysis (permutation run)"
-    # (3.2) permutation run
-    set +e
-    if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP3_PERMUTATION_ALTERNATE=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP2_PERMUTATION_ALTERNATE_ID" <<EOT
-#!/bin/bash
-#SBATCH -J phase2_step3_permutation_alternate
-#SBATCH --array=1-$num_networks
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step3_permutation_alternate_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-echo "Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_R \
-    Rscript ./scripts/phase2/dc_ORA_cmd.R \
-        --sigModuleDir ${OUTPUT_DIR}/${TRAITRR}/enriched_modules/${TRAITRR}-\${network}/ \
-        --backGroundGenesFile ${OUTPUT_DIR}/${TRAITRR}/background_genes/${MODULE_ALGO}-\${network}.txt \
-        --summaryRoot ${OUTPUT_DIR}/${TRAITRR}/GO_summaries_alternate/ \
-        --reportRoot ${OUTPUT_DIR}/${TRAITRR}/report_sumamries_alternate/
-EOT
-)
-        #rm $tmpfile
-        JOB_STAGE2_STEP3_PERMUTATION_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP3_PERMUTATION_ALTERNATE" | awk '{print $4}')
-    else
-        for network in `ls ${MODULEFILEDIR}/`;
-        do
-            echo "Network: $network"
-            network="${network%.*}" # remove extension
-            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_R /bin/bash -c \
-                "Rscript ./scripts/phase2/dc_ORA_cmd.R \
-                    --sigModuleDir ${OUTPUT_DIR}/${TRAITRR}/enriched_modules/${TRAITRR}-${network}/ \
-                    --backGroundGenesFile ${OUTPUT_DIR}/${TRAITRR}/background_genes/${MODULE_ALGO}-${network}.txt \
-                    --summaryRoot ${OUTPUT_DIR}/${TRAITRR}/GO_summaries_alternate/ \
-                    --reportRoot ${OUTPUT_DIR}/${TRAITRR}/report_sumamries_alternate/"
-
-        done
-    fi
-    set -e
-}
-
-phase2_step4_alternate() {
-
-    # (4) Generate statistics for original gene-level p-values
-    echo "# STEP 4: generate statistics for original gene-level p-values"
-    if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP4_ALTERNATE=$(sbatch --dependency=afterany:"$JOB_STAGE2_STEP3_ORIGINAL_ALTERNATE_ID" <<EOT
-#!/bin/bash
-#SBATCH -J phase2_step4_alternate
-#SBATCH --array=1-$num_networks
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step4_alternate_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-echo "Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python  \
-    python3 ./scripts/phase2/dc_generate_or_statistics_alternate.py \
-        --gene_set_path ${PVALFILEDIR} \
-        --master_summary_path ${OUTPUT_DIR}/${TRAIT}/master_summary_alternate.csv \
-        --trait $TRAIT \
-        --module_path ${OUTPUT_DIR}/${TRAIT}/enriched_modules/${TRAIT}-\${network}/ \
-        --go_path ${OUTPUT_DIR}/${TRAIT}/GO_summaries_alternate/ \
-        --study $TRAIT \
-        --output_path ${OUTPUT_DIR}/${TRAIT}/results/raw_alternate/ \
-        --network \$network
-EOT
-)
-        #rm $tmpfile
-        JOB_STAGE2_STEP4_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP4_ALTERNATE" | awk '{print $4}')
-    else
-        for network in `ls ${MODULEFILEDIR}/`;
-        do
-            echo "Network: $network"
-            network="${network%.*}" # remove extension
-            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-                "python3 ./scripts/phase2/dc_generate_or_statistics_alternate.py \
-                    --gene_set_path ${PVALFILEDIR} \
-                    --master_summary_path ${OUTPUT_DIR}/${TRAIT}/master_summary_alternate.csv \
-                    --trait $TRAIT \
-                    --module_path ${OUTPUT_DIR}/${TRAIT}/enriched_modules/${TRAIT}-${network}/ \
-                    --go_path ${OUTPUT_DIR}/${TRAIT}/GO_summaries_alternate/ \
-                    --study $TRAIT \
-                    --output_path ${OUTPUT_DIR}/${TRAIT}/results/raw_alternate/ \
-                    --network $network"
-        done
-    fi
-}
-
-create_tmp_threshold_network_pairs_alternate() {
-    thresholds=(0.00005 0.0001 0.005 0.01 0.05 0.1 0.15 0.2 0.25)
-    modules=( $( ls ./test/ker_based/*.txt ) )
-    for f in "${modules[@]}"; do
-        base="$(basename "$f" .txt )"
-        for t in "${thresholds[@]}"; do
-            echo -e "${t}\t${base}"
-        done
-    done
-}
-
-phase2_step5_alternate() {
-
-    # (5) Generate statistics for random permutation runs
-    echo "# STEP 5: generate statistics for random permutations"
-    tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-    create_tmp_threshold_network_pairs_alternate > $tmpfile
-    if [ "$SINGULARITY" = true ]; then
-        num_pairs=$( wc -l < $tmpfile )
-        JOB_STAGE2_STEP5_ALTERNATE=$(sbatch --dependency="$JOB_STAGE2_STEP3_PERMUTATION_ALTERNATE_ID" <<EOF
-#!/bin/bash
-#SBATCH -J phase2_step5_alternate
-#SBATCH --array=1-$num_pairs
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step5_alternate_%A_%a.out
-threshold=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 1)
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile | cut -f 2)
-echo "Threshold \$threshold, Network: \$network"
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python  \
-    python3 ./scripts/phase2/dc_generate_rp_statistics_alternate.py \
-        --gene_set_path ${OUTPUT_DIR}/RPscores/${TRAITRR}/ \
-        --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_alternate.csv \
-        --trait ${TRAITRR} \
-        --module_path ${OUTPUT_DIR}/${TRAITRR}/enriched_modules/${TRAITRR}-\${network}/ \
-        --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries_alternate/ \
-        --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw_alternate/ \
-        --network \$network \
-        --threshold \$threshold
-EOF
-)
-        JOB_STAGE2_STEP5_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP5_ALTERNATE" | awk '{print $4}')
-    else
-        while IFS=$'\t' read -r threshold network; do
-            echo "Threshold $threshold, Network: $network"
-            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-                "python3 ./scripts/phase2/dc_generate_rp_statistics_alternate.py \
-                    --gene_set_path ${OUTPUT_DIR}/RPscores/${TRAITRR}/ \
-                    --master_summary_path ${OUTPUT_DIR}/${TRAITRR}/master_summary_alternate.csv \
-                    --trait ${TRAITRR} \
-                    --module_path ${OUTPUT_DIR}/${TRAITRR}/enriched_modules/${TRAITRR}-${network}/ \
-                    --go_path ${OUTPUT_DIR}/${TRAITRR}/GO_summaries_alternate/ \
-                    --output_path ${OUTPUT_DIR}/${TRAITRR}/results/raw_alternate/ \
-                    --network $network \
-                    --threshold $threshold"
-        done < $tmpfile
-    fi
-    #rm -rf $tmpfile
-}
-
-phase2_step6_alternate() {
-
-    # (6) summarize statistics from original and permutation runs
-    echo "# STEP 6: summarize statistics from original and permutation runs"
-    if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP6_ALTERNATE=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP4_ALTERNATE_ID","$JOB_STAGE2_STEP5_ALTERNATE_ID" <<EOF
-#!/bin/bash
-#SBATCH -J phase2_step6_alternate
-#SBATCH --array=1-$num_networks
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step6_alternate_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python  \
-    python3 ./scripts/phase2/dc_summary_statistics_rp_alternate.py \
-        --trait $TRAIT \
-        --input_path $OUTPUT_DIR \
-        --or_id $TRAIT \
-        --rr_id $TRAITRR \
-        --input_file_rr_id $TRAITRR \
-        --network \$network \
-        --output_path ${OUTPUT_DIR}/${TRAIT}/summary_alternate/
-EOF
-)
-        JOB_STAGE2_STEP6_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP6_ALTERNATE" | awk '{print $4}')
-    else
-        for network in `ls ${MODULEFILEDIR}/`;
-        do
-            echo "Network: $network"
-            network="${network%.*}" # remove extension
-            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-                "python3 ./scripts/phase2/dc_summary_statistics_rp_alternate.py \
-                    --trait $TRAIT \
-                    --input_path $OUTPUT_DIR \
-                    --or_id $TRAIT \
-                    --rr_id $TRAITRR \
-                    --input_file_rr_id $TRAITRR \
-                    --network $network \
-                    --output_path ${OUTPUT_DIR}/${TRAIT}/summary_alternate/"
-        done
-    fi
-}
-
-phase2_step7_alternate() {
-
-    # (7) Extract genes that meet FISHNET criteria
-    echo "# STEP 7: Extracting FISHNET genes"
-    if [ "$SINGULARITY" = true ]; then
-        tmpfile=$(mktemp --tmpdir="$(pwd)/tmp")
-        ls ${MODULEFILEDIR} > $tmpfile
-        num_networks=$( wc -l < $tmpfile)
-        JOB_STAGE2_STEP7_ALTERNATE=$(sbatch --dependency=afterok:"$JOB_STAGE2_STEP6_ALTERNATE_ID" <<EOF
-#!/bin/bash
-#SBATCH -J phase2_step7_alternate
-#SBATCH --array=1-$num_networks
-#SBATCH --mem-per-cpu=4G
-#SBATCH --cpus-per-task=1
-#SBATCH -o ./logs/phase2_step7_alternate_%A_%a.out
-network=\$( sed -n \${SLURM_ARRAY_TASK_ID}p $tmpfile )
-network="\${network%.*}" # remove extension
-singularity exec --no-home -B $(pwd):$(pwd) --pwd $(pwd) $container_python  \
-    python3 ./scripts/phase2/dc_identify_mea_passing_genes_alternate.py \
-        --trait $TRAIT \
-        --geneset_input $PVALFILEDIR \
-        --FDR_threshold $FDR_THRESHOLD \
-        --percentile_threshold $PERCENTILE_THRESHOLD \
-        --network \$network \
-        --input_path ${OUTPUT_DIR}/${TRAIT}/
-EOF
-)
-        #rm -rf $tmpfile
-        JOB_STAGE2_STEP7_ALTERNATE_ID=$(echo "$JOB_STAGE2_STEP7_ALTERNATE" | awk '{print $4}')
-    else
-        for network in `ls ${MODULEFILEDIR}/`;
-        do
-            echo "Network: $network"
-            network="${network%.*}" # remove extension
-            docker run --rm -v $(pwd):$(pwd) -w $(pwd) -u $(id -u):$(id -g) $container_python /bin/bash -c \
-                "python3 ./scripts/phase2/dc_identify_mea_passing_genes_alternate.py \
-                    --trait $TRAIT \
-                    --geneset_input $PVALFILEDIR \
-                    --FDR_threshold $FDR_THRESHOLD \
-                    --percentile_threshold $PERCENTILE_THRESHOLD \
-                    --network $network \
-                    --input_path ${OUTPUT_DIR}/${TRAIT}/"
-        done
-    fi
-}
-
+#########################
+### UTILITY FUNCTIONS ###
+#########################
 print_test_message() {
     echo "
 ########################################
@@ -1212,7 +951,6 @@ print_test_message() {
 ########################################
 "
 }
-
 print_phase_message() {
     echo "
 ###############
@@ -1220,15 +958,6 @@ print_phase_message() {
 ###############
 "
 }
-
-print_phase_completion() {
-    echo "
-########################
-### PHASE $1 COMPLETE ###
-########################
-"
-}
-
 print_default_thresholding_message() {
     echo "
 ##########################
@@ -1236,124 +965,114 @@ print_default_thresholding_message() {
 ##########################
 "
 }
-
-print_alternative_thresholding_message() {
+print_phase_completion() {
     echo "
-##############################
-## ALTERNATIVE THRESHOLDING ##
-##############################
+########################
+### PHASE $1 COMPLETE ###
+########################
 "
 }
-
-print_phase1_completion_message() {
+print_phase_completion_message() {
     if [ "$SINGULARITY" = true ]; then
-    # wait for phase1_step5 to complete
-        while squeue -j "$JOB_STAGE1_STEP5_ID" | grep -q "$JOB_STAGE1_STEP5_ID"; do
+        PHASE=$1
+        JOBID=$2
+        while squeue -j "$JOBID" | grep -q "$JOBID"; do
             sleep 5
         done
     fi
-    print_phase_completion 1
+    print_phase_completion $PHASE
 }
-
-print_phase2_completion_message() {
-    if [ "$SINGULARITY" = true ]; then
-    # wait for phase1_step5 to complete
-        while squeue -j "$1" | grep -q "$1"; do
-            sleep 5
-        done
-    fi
-    print_phase_completion 2
-}
-
 nextflow_cleanup() {
     rm -rf .nextflow* work/
 }
 
-##############################
-### TEST CONFIG ENTRYPOINT ###
-##############################
-#if [ "$TEST_MODE" = true ]; then
 
+
+############
+### MAIN ###
+############
+# test
+if [ "$TEST_MODE" = true ]; then
     print_test_message
+fi
 
-    pull_docker_image
+# pull containers
+pull_docker_image
 
-    if [ "$SKIP_STAGE_1" = true ]; then
-        echo "Skipping STAGE 1"
+if [ "$SKIP_STAGE_1" = true ]; then
+    echo "Skipping STAGE 1"
+else
+    ###############
+    ### PHASE 1 ###
+    ###############
+    print_phase_message 1
+
+    phase1_step1
+
+    phase1_step2
+
+    phase1_step3
+
+    phase1_step4
+
+    print_phase_completion_message 1 $JOB_STAGE1_STEP4_PERMUTATION_ID
+
+    #nextflow_cleanup
+fi
+
+if [ "$SKIP_STAGE_2" = true ]; then
+    echo "Skipping STAGE 2"
+else
+    ###############
+    ### PHASE 2 ###
+    ###############
+
+    print_phase_message 2
+
+    phase2_step0
+
+    if [ "$THRESHOLDING_MODE" = "$THRESHOLDING_MODE_DEFAULT" ]; then
+        ##########################
+        ## DEFAULT THRESHOLDING ##
+        ##########################
+
+        print_default_thresholding_message
+
+        phase2_step1_default
+
+        phase2_step2_default
+
+        phase2_step3_default
+
+        phase2_step4_default
+
+        print_phase_completion_message 2 $JOB_STAGE2_STEP4_DEFAULT_ID
+
     else
-        ###############
-        ### PHASE 1 ###
-        ###############
-        print_phase_message 1
+        ##############################
+        ## ALTERNATIVE THRESHOLDING ##
+        ##############################
+        print_alternative_thresholding_message
 
-        phase1_step1
+        phase2_step1_alternate
 
-        phase1_step3
+        phase2_step2_original_alternate
 
-        phase1_step5
+        phase2_step2_permutation_alternate
 
-        print_phase1_completion_message
+        phase2_step3_original_alternate
 
-        nextflow_cleanup
+        phase2_step3_permutation_alternate
+
+        phase2_step4_alternate
+
+        phase2_step5_alternate
+
+        phase2_step6_alternate
+
+        phase2_step7_alternate
+
+        print_phase_completion_message 2 $JOB_STAGE2_STEP7_ALTERNATE_ID
     fi
-
-    if [ "$SKIP_STAGE_2" = true ]; then
-        echo "Skipping STAGE 2"
-    else
-        ###############
-        ### PHASE 2 ###
-        ###############
-
-        print_phase_message 2
-
-        phase2_step0
-
-        if [ "$THRESHOLDING_MODE" = "$THRESHOLDING_MODE_DEFAULT" ]; then
-            ##########################
-            ## DEFAULT THRESHOLDING ##
-            ##########################
-
-            print_default_thresholding_message
-
-            phase2_step1_default
-
-            phase2_step2_default
-
-            phase2_step3_default
-
-            phase2_step4_default
-
-            print_phase2_completion_message $JOB_STAGE2_STEP4_DEFAULT_ID
-
-        else
-            ##############################
-            ## ALTERNATIVE THRESHOLDING ##
-            ##############################
-            print_alternative_thresholding_message
-
-            phase2_step1_alternate
-
-            phase2_step2_original_alternate
-
-            phase2_step2_permutation_alternate
-
-            phase2_step3_original_alternate
-
-            phase2_step3_permutation_alternate
-
-            phase2_step4_alternate
-
-            phase2_step5_alternate
-
-            phase2_step6_alternate
-
-            phase2_step7_alternate
-
-            print_phase2_completion_message $JOB_STAGE2_STEP7_ALTERNATE_ID
-        fi
-    fi
-    # TODO: reverse the ranks of the original p-values SS --> run OR part of stage 1 --> filter for sig modules
-#else
-#    echo "FISHENT CURRENTLY ONLY SUPPORTS the --test FLAG"
-#fi
+fi
 echo "### FISHNET COMPLETE ###"
