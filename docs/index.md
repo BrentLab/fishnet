@@ -17,7 +17,7 @@ gene function annotations from Gene Ontology (GO). FISHNET manuscript is current
 
 
 
-![FISHNET Workflow](/assets/fishnet_fig1_ver3.jpg)
+![FISHNET Workflow](assets/fishnet_fig1_ver3.jpg)
 (A) The gene-level p-values are input into module significance analysis. Module
 significance analysis outputs significant modules and their p-values. Gene ontology over-
 representation analysis identifies biological processes with significant over-representation
