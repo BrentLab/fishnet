@@ -82,7 +82,7 @@ $ ./fishnet.sh \
     --study /path/to/input/study/directory/  \
     --modules /path/to/modules/directory/
 ```
-This will run both stages of FISHNET with 10 permutations using the
+This will run both stages of FISHNET with 200 permutations using the
 default thresholding method (by default).
 
 ### Output files

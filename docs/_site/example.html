@@ -14,12 +14,12 @@ export NXF_CONDA_CACHEDIR=""
 export TMPDIR=""
 export NXF_TEMP=""
 
-study="./data/pvals/exampleOR/"
-study_random="./data/pvals/exampleRR/"
-modules="./data/modules/ker_based/"
-num_permutations=500
+study="./test/exampleOR/"
+study_random="./test/exampleRR/"
+modules="./test/ker_based/"
+num_permutations=200
 
-./fishnet_multi.sh \
+./fishnet.sh \
     --study $study \
     --study-random $study_random \
     --modules $modules \
@@ -86,12 +86,12 @@ RUNNING WITH CONDA ENVIRONMENT (fishnet)
 ########################
 
 ### FISHNET COMPLETE ###
-</code></pre></div> </div> </details> <h2 id="non-hpc-example"> <a href="#non-hpc-example" class="anchor-heading" aria-labelledby="non-hpc-example"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> Non-HPC example </h2> <p class="warning">Note that the non-HPC version runs sequentially and will take substantially longer than the HPC version.</p> <p>Copy the example script <code class="language-plaintext highlighter-rouge">test/example_malewC_docker.sh</code> to the FISHNET directory.</p> <details> <summary>test/example_maleWC_docker.sh</summary> <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>study="./data/pvals/exampleOR/"
+</code></pre></div> </div> </details> <h2 id="non-hpc-example"> <a href="#non-hpc-example" class="anchor-heading" aria-labelledby="non-hpc-example"><svg viewBox="0 0 16 16" aria-hidden="true"><use xlink:href="#svg-link"></use></svg></a> Non-HPC example </h2> <p class="warning">Note that the non-HPC version runs sequentially and will take <em><strong>substantially longer</strong></em> than the HPC version.</p> <p>Copy the example script <code class="language-plaintext highlighter-rouge">test/example_malewC_docker.sh</code> to the FISHNET directory.</p> <details> <summary>test/example_maleWC_docker.sh</summary> <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>study="./data/pvals/exampleOR/"
 study_random="./data/pvals/exampleRR/"
 modules="./data/modules/ker_based/"
-num_permutations=500
+num_permutations=200
 
-./fishnet_multi.sh \
+./fishnet.sh \
     --study $study \
     --study-random $study_random \
     --modules $modules \
@@ -123,17 +123,17 @@ num_permutations=500
     ├── results
     └── summary
 </code></pre></div> </div> </details> <p>The results we’re primarily interested in will be under <code class="language-plaintext highlighter-rouge">results/exampleOR/summary/</code>:</p> <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>results/exampleOR/summary/
-├── 0-maleWC_coex_summary_500_permutations.csv
-├── 0-maleWC_ppi2_summary_500_permutations.csv
-├── 0-maleWC_ppi_summary_500_permutations.csv
-├── ppi_0-maleWC_fishnet_genes_500_permutations_0.05.csv
-└── ppi2_0-maleWC_fishnet_genes_500_permutations_0.05.csv
+├── 0-maleWC_coex_summary_200_permutations.csv
+├── 0-maleWC_ppi2_summary_200_permutations.csv
+├── 0-maleWC_ppi_summary_200_permutations.csv
+├── ppi_0-maleWC_fishnet_genes_200_permutations_0.05.csv
+└── ppi2_0-maleWC_fishnet_genes_200_permutations_0.05.csv
 </code></pre></div></div> <p>Here, we can see that we have found 2 FISHNET genes for <code class="language-plaintext highlighter-rouge">maleWC</code> in the <code class="language-plaintext highlighter-rouge">ppi</code> network and 1 FISHNET gene in the <code class="language-plaintext highlighter-rouge">ppi2</code> network:</p> <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">head</span> <span class="k">*</span>fishnet_genes<span class="k">*</span>.csv
-<span class="o">==&gt;</span> ppi_0-maleWC_fishnet_genes_500_permutations_0.05.csv &lt;<span class="o">==</span>
+<span class="o">==&gt;</span> ppi_0-maleWC_fishnet_genes_200_permutations_0.05.csv &lt;<span class="o">==</span>
 Threshold,Network,numNominal,Trait,NumFISHNETGenes,FISHNETGenes
 190,ppi,860,0-maleWC,2.0,<span class="s2">"['DEFA1', 'DEFA5']"</span>
 
-<span class="o">==&gt;</span> ppi2_0-maleWC_fishnet_genes_500_permutations_0.05.csv &lt;<span class="o">==</span>
+<span class="o">==&gt;</span> ppi2_0-maleWC_fishnet_genes_200_permutations_0.05.csv &lt;<span class="o">==</span>
 Threshold,Network,numNominal,Trait,NumFISHNETGenes,FISHNETGenes
 70,ppi2,860,0-maleWC,1.0,[<span class="s1">'DEFA5'</span><span class="o">]</span>
 </code></pre></div></div> <p>From the master summary file, we can locate the modules that contain these FISHNET genes</p> <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">cat </span>master_summary_filtered_parsed.csv

@@ -12,6 +12,12 @@ permalink: /changelog
 {: .fs-5 .fw-300 }
 ---
 
+## Release v1.0.3
+Minor update:
+* Update default number of permutations to 200.
+* Update docs to reflect.
+* Add extra warnings and notes for running FISHNET on non-SLURM environments.
+
 ## Release v1.0.2
 Minor update:
 * Update docs to include an example (finally) with maleWC.

@@ -46,12 +46,12 @@ FISHNET directory.
     export TMPDIR=""
     export NXF_TEMP=""
 
-    study="./data/pvals/exampleOR/"
-    study_random="./data/pvals/exampleRR/"
-    modules="./data/modules/ker_based/"
-    num_permutations=500
+    study="./test/exampleOR/"
+    study_random="./test/exampleRR/"
+    modules="./test/ker_based/"
+    num_permutations=200
 
-    ./fishnet_multi.sh \
+    ./fishnet.sh \
         --study $study \
         --study-random $study_random \
         --modules $modules \
@@ -142,8 +142,8 @@ should keep track of the progress:
 ## Non-HPC example
 
 {: .warning }
-Note that the non-HPC version runs sequentially and will take substantially
-longer than the HPC version.
+Note that the non-HPC version runs sequentially and will take
+_**substantially longer**_ than the HPC version.
 
 Copy the example script `test/example_malewC_docker.sh` to the FISHNET
 directory.
@@ -152,9 +152,9 @@ directory.
     study="./data/pvals/exampleOR/"
     study_random="./data/pvals/exampleRR/"
     modules="./data/modules/ker_based/"
-    num_permutations=500
+    num_permutations=200
 
-    ./fishnet_multi.sh \
+    ./fishnet.sh \
         --study $study \
         --study-random $study_random \
         --modules $modules \
@@ -201,21 +201,21 @@ The results we're primarily interested in will be under
 `results/exampleOR/summary/`:
 ```
 results/exampleOR/summary/
-├── 0-maleWC_coex_summary_500_permutations.csv
-├── 0-maleWC_ppi2_summary_500_permutations.csv
-├── 0-maleWC_ppi_summary_500_permutations.csv
-├── ppi_0-maleWC_fishnet_genes_500_permutations_0.05.csv
-└── ppi2_0-maleWC_fishnet_genes_500_permutations_0.05.csv
+├── 0-maleWC_coex_summary_200_permutations.csv
+├── 0-maleWC_ppi2_summary_200_permutations.csv
+├── 0-maleWC_ppi_summary_200_permutations.csv
+├── ppi_0-maleWC_fishnet_genes_200_permutations_0.05.csv
+└── ppi2_0-maleWC_fishnet_genes_200_permutations_0.05.csv
 ```
 Here, we can see that we have found 2 FISHNET genes for `maleWC` in the `ppi`
 network and 1 FISHNET gene in the `ppi2` network:
 ```bash
 $ head *fishnet_genes*.csv
-==> ppi_0-maleWC_fishnet_genes_500_permutations_0.05.csv <==
+==> ppi_0-maleWC_fishnet_genes_200_permutations_0.05.csv <==
 Threshold,Network,numNominal,Trait,NumFISHNETGenes,FISHNETGenes
 190,ppi,860,0-maleWC,2.0,"['DEFA1', 'DEFA5']"
 
-==> ppi2_0-maleWC_fishnet_genes_500_permutations_0.05.csv <==
+==> ppi2_0-maleWC_fishnet_genes_200_permutations_0.05.csv <==
 Threshold,Network,numNominal,Trait,NumFISHNETGenes,FISHNETGenes
 70,ppi2,860,0-maleWC,1.0,['DEFA5']
 ```

@@ -77,7 +77,7 @@ data/modules/ker_based/
 
 #### Permutations
 `--num-permutations <integer>`
-> Configures the number of permutations (default: 10)
+> Configures the number of permutations (default: 200)
 
 #### Multiple testing
 `--FDR-threshold <float>`
@@ -112,6 +112,10 @@ data/modules/ker_based/
 #### Container platform
 `--singularity`
 > Configures containers to run using Singularity (Docker, by default).
+> 
+> {: .warning }
+> FISHNET runs parallel using the `--singularity` flag. If you are on a system
+> that does not support SLURM, FISHNET will take much longer.
 
 #### Nextflow config file
 > The `--nxf-config <path/to/nxf.config>` option can be used to specify a custom
