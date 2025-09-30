@@ -48,7 +48,7 @@ $ ./fishnet.sh --test
 
 ### Execution
 Here we show the most basic steps for a FISHNET analysis. There are a variety of
-configuration options which are detailed in [Configuration](/configuration).
+configuration options which are detailed in [Configuration]({% link configuration.md %}).
 This code chunk assumes that you have an input summary statistics file (comma-separated with columns named "Genes" and
 "p_vals") and a set of tab-delimited network module files.
 
@@ -117,5 +117,5 @@ results/
 The `GO_summaries/` directory lists statistics for the GO overrepresentation analysis. 
 The FISHNET genes for the trait and the network the genes originate from can be found in  `summary/<network>_<trait>_fishnet_genes_<FDR-threshold>.csv`
 
-Read through the [Example](/example) to interpret the output files.
+Read through the [Example]({% link example.md %}) to interpret the output files.
 
